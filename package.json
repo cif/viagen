@@ -43,6 +43,7 @@
     "@anthropic-ai/claude-code": "^2.1.42",
     "@vercel/sandbox": "^1"
   },
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/cif/viagen.git"

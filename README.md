@@ -1,14 +1,18 @@
-# Viagen (Vite Agent)
+# viagen
 
-A Vite plugin that embeds Claude Code into any Vite dev server.
+A Vite plugin and CLI tool that enables you to use Claude Code in a sandbox — instantly.
 
-## Install
+## Prerequisites
+
+- [Claude](https://claude.ai/signup) — Max, Pro, or API plan. The setup wizard handles auth.
+- [Vercel](https://vercel.com/signup) — Free plan works. Sandboxes last 45 min on Hobby, 5 hours on Pro.
+- [GitHub CLI](https://cli.github.com) — Enables git clone and push from sandboxes.
+
+## Step 1 — Add viagen to your app
 
 ```bash
 npm install viagen
 ```
-
-## Setup
 
 ```ts
 // vite.config.ts
@@ -20,87 +24,82 @@ export default defineConfig({
 })
 ```
 
-Set `ANTHROPIC_API_KEY` in your `.env`, start the dev server.
+## Step 2 — Setup
 
-## Options
-
-```ts
-viagen({
-  position: 'bottom-right',  // toggle button: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
-  model: 'sonnet',           // claude model
-  panelWidth: 420,           // chat panel width in px
-  overlay: true,             // "Fix This Error" button on Vite error overlay
-  ui: true,                  // inject toggle button + chat panel into pages
-})
+```bash
+npx viagen setup
 ```
 
-All options are optional. Defaults shown above.
+The setup wizard authenticates with Claude then uses GitHub and Vercel to write your local `.env`.
 
-## Sandbox
+You can now run `npm run dev` to start the local dev server. At this point you can launch viagen and chat with Claude to make changes to your app.
 
-Deploy your dev server to a remote Vercel Sandbox:
+## Step 3 — Sandbox
 
 ```bash
 npx viagen sandbox
 ```
 
-This creates an isolated microVM, uploads your project, installs dependencies, and starts the dev server. All endpoints are protected with token-based auth.
-
-**Prerequisites:** `ANTHROPIC_API_KEY` in `.env` + Vercel auth (`vercel link && vercel env pull` or set `VERCEL_TOKEN`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_ID`).
+Deploys your dev server to a remote Vercel Sandbox — an isolated VM-like environment where Claude can read, write, and push code.
 
 ```bash
-npx viagen sandbox stop <sandboxId>   # Stop a running sandbox
+# Deploy on a specific branch
+npx viagen sandbox --branch feature/my-thing
+
+# Set a longer timeout (default: 30 min)
+npx viagen sandbox --timeout 60
+
+# Stop a running sandbox
+npx viagen sandbox stop <sandboxId>
 ```
 
-## CLI (coming soon)
+## Vite Plugin Options
 
-`npx viagen setup` — interactive setup that uses the Vercel CLI under the hood to log in, pick a team, link a project, and write all the credentials to `.env` so `npx viagen sandbox` just works.
+```ts
+viagen({
+  position: 'bottom-right',  // toggle button position
+  model: 'sonnet',           // claude model
+  panelWidth: 420,           // chat panel width in px
+  overlay: true,             // fix button on error overlay
+  ui: true,                  // inject chat panel into pages
+})
+```
 
-## Auth
+## API
 
-Set `VIAGEN_AUTH_TOKEN` in `.env` to protect all endpoints. When set:
+Every viagen endpoint is available as an API. Build your own UI, integrate with CI, or script Claude from the command line.
 
-- Browser: visit `?token=<token>` to set a session cookie
-- API: use `Authorization: Bearer <token>` header
+```
+POST /via/chat        — send a message, streamed SSE response
+POST /via/chat/reset  — clear conversation history
+GET  /via/health      — check API key status
+GET  /via/error       — latest build error (if any)
+GET  /via/ui          — standalone chat interface
+```
 
-Auth is automatic when deploying via `npx viagen sandbox`.
-
-## Endpoints
-
-**`POST /via/chat`** — Send a message, get a streamed response.
+When `VIAGEN_AUTH_TOKEN` is set (always on in sandboxes), pass the token as a `Bearer` header or `?token=` query param.
 
 ```bash
-curl -N -X POST http://localhost:5173/via/chat \
+# With curl
+curl -X POST http://localhost:5173/via/chat \
+  -H "Authorization: Bearer $VIAGEN_AUTH_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"message": "add a dark mode toggle"}'
+  -d '{"message": "add a hello world route"}'
+
+# Or pass the token as a query param (sets a session cookie)
+open "http://localhost:5173/via/ui?token=$VIAGEN_AUTH_TOKEN"
 ```
-
-Response is SSE with `data:` lines containing JSON:
-
-```
-data: {"type":"text","text":"I'll add a dark mode toggle..."}
-data: {"type":"tool_use","name":"Edit","input":{"file_path":"src/App.tsx"}}
-data: {"type":"text","text":"Done! The toggle is in the header."}
-event: done
-data: {}
-```
-
-**`POST /via/chat/reset`** — Clear conversation history.
-
-**`GET /via/health`** — Check if `ANTHROPIC_API_KEY` is configured.
-
-**`GET /via/error`** — Get the latest Vite build error (if any).
-
-## UI
-
-The plugin injects a `via` toggle button into your page. Click it to open the chat panel. Build errors get a "Fix This Error" button on the Vite error overlay.
-
-You can also open the chat UI directly at `http://localhost:5173/via/ui`.
 
 ## Development
 
 ```bash
 npm install
-npm run dev        # Dev server
+npm run dev        # Dev server (site)
 npm run build      # Build with tsup
+npm run test       # Run tests
+npm run typecheck  # Type check
 ```
+
+## License
+
+[MIT](LICENSE)
