@@ -107,48 +107,72 @@ const VIAGEN_CLIENT_SCRIPT = /* js */ `
     setTimeout(function() {
       var root = overlay.shadowRoot;
       if (root.getElementById('viagen-fix-btn')) return;
-      var target = root.querySelector('.window') || root.firstElementChild;
-      if (!target) return;
+      var win = root.querySelector('.window') || root.firstElementChild;
+      if (!win) return;
 
+      // Inject styles for compact overlay + fixing state
+      var style = document.createElement('style');
+      style.textContent = [
+        '.stack { display: none; }',
+        '.tip { display: none; }',
+        '.frame { max-height: 120px; overflow: hidden; font-size: 12px; }',
+        '.window { max-width: 600px; padding: 20px; }',
+        '.window.viagen-fixing .message { opacity: 0.4; }',
+        '.window.viagen-fixing .file { opacity: 0.4; }',
+        '.window.viagen-fixing .frame { opacity: 0.4; }',
+        '#viagen-fixing-status { display: none; padding: 16px; text-align: center; font-family: system-ui, sans-serif; }',
+        '#viagen-fixing-status .label { font-size: 15px; font-weight: 600; color: #e4e4e7; }',
+        '#viagen-fixing-status .sub { font-size: 12px; color: #71717a; margin-top: 4px; }',
+        '#viagen-fixing-status .dot { display: inline-block; animation: viagen-pulse 1.5s ease-in-out infinite; }',
+        '.window.viagen-fixing #viagen-fixing-status { display: block; }',
+        '.window.viagen-fixing #viagen-fix-btn { display: none; }',
+        '@keyframes viagen-pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }',
+      ].join('\\n');
+      root.appendChild(style);
+
+      // Fixing status banner
+      var status = document.createElement('div');
+      status.id = 'viagen-fixing-status';
+      status.innerHTML = '<div class="label"><span class="dot">&#9679;</span> Fixing...</div><div class="sub">Claude is working on it. Check the chat panel.</div>';
+      win.appendChild(status);
+
+      // Fix button
       var btn = document.createElement('button');
       btn.id = 'viagen-fix-btn';
       btn.textContent = 'Fix This Error';
-      btn.style.cssText = 'display:block;width:100%;margin-top:12px;padding:12px 20px;background:#3f3f46;color:#e4e4e7;border:1px solid #52525b;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:system-ui,sans-serif;transition:background 0.15s;';
-      btn.onmouseenter = function() { btn.style.background = '#52525b'; };
-      btn.onmouseleave = function() { btn.style.background = '#3f3f46'; };
-      btn.addEventListener('click', function() { fixError(btn); });
-      target.appendChild(btn);
+      btn.style.cssText = 'display:block;width:100%;margin-top:12px;padding:10px 20px;background:#3f3f46;color:#e4e4e7;border:1px solid #52525b;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:system-ui,sans-serif;transition:background 0.15s;';
+      btn.onmouseenter = function() { if (!btn.disabled) btn.style.background = '#52525b'; };
+      btn.onmouseleave = function() { if (!btn.disabled) btn.style.background = '#3f3f46'; };
+      btn.addEventListener('click', function() { fixError(win); });
+      win.appendChild(btn);
     }, 50);
   }
 
-  async function fixError(btn) {
-    btn.textContent = 'Fixing...';
-    btn.disabled = true;
-    btn.style.opacity = '0.7';
-    btn.style.cursor = 'wait';
+  async function fixError(win) {
+    win.classList.add('viagen-fixing');
     try {
       var errorRes = await fetch('/via/error');
       var errorData = await errorRes.json();
-      if (!errorData.error) { btn.textContent = 'No error found'; return; }
+      if (!errorData.error) { win.classList.remove('viagen-fixing'); return; }
       var e = errorData.error;
       var prompt = 'Fix this Vite build error in ' +
         (e.loc ? e.loc.file + ':' + e.loc.line : 'unknown file') +
         ':\\n\\n' + e.message +
         (e.frame ? '\\n\\nCode frame:\\n' + e.frame : '');
-      var chatRes = await fetch('/via/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: prompt }),
-      });
-      var reader = chatRes.body.getReader();
-      while (true) { var r = await reader.read(); if (r.done) break; }
+      // Open panel and route through chat UI
+      var p = document.getElementById('viagen-panel');
+      if (p && p.style.display === 'none') {
+        var t = document.getElementById('viagen-toggle');
+        if (t) t.click();
+      }
+      var f = p && p.querySelector('iframe');
+      if (f && f.contentWindow) {
+        f.contentWindow.postMessage({ type: 'viagen:send', message: prompt }, '*');
+      }
     } catch(err) {
       console.error('[viagen] Fix error failed:', err);
+      win.classList.remove('viagen-fixing');
     }
-    btn.textContent = 'Try Again';
-    btn.disabled = false;
-    btn.style.opacity = '1';
-    btn.style.cursor = 'pointer';
   }
 
   /* ---- Floating toggle + iframe panel ---- */

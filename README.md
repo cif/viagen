@@ -1,6 +1,6 @@
 # Viagen (Vite Agent)
 
-A Vite plugin that exposes endpoints for chatting with Claude Code. Add it to any Vite app, spin up a sandbox, and remotely chat with your app to make changes.
+A Vite plugin that embeds Claude Code into any Vite dev server.
 
 ## Install
 
@@ -8,11 +8,10 @@ A Vite plugin that exposes endpoints for chatting with Claude Code. Add it to an
 npm install viagen
 ```
 
-## Usage
-
-Add the plugin to your `vite.config.ts`:
+## Setup
 
 ```ts
+// vite.config.ts
 import { defineConfig } from 'vite'
 import { viagen } from 'viagen'
 
@@ -21,19 +20,44 @@ export default defineConfig({
 })
 ```
 
-Set the `ANTHROPIC_API_KEY` environment variable, then start your dev server. The plugin adds endpoints under `/via/*`:
+Set `ANTHROPIC_API_KEY` in your `.env`, start the dev server.
 
-- `GET /via/health` — Returns env var configuration status
-- `POST /via/chat` — Chat with Claude Code to build and modify your app (streams SSE)
-- `POST /via/chat/reset` — Reset the conversation
+## Endpoints
 
-Claude Code runs as a subprocess with full access to your project — it can read, write, and edit files, run commands, and search your codebase. Changes trigger Vite HMR automatically.
+**`POST /via/chat`** — Send a message, get a streamed response.
+
+```bash
+curl -N -X POST http://localhost:5173/via/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "add a dark mode toggle"}'
+```
+
+Response is SSE with `data:` lines containing JSON:
+
+```
+data: {"type":"text","text":"I'll add a dark mode toggle..."}
+data: {"type":"tool_use","name":"Edit","input":{"file_path":"src/App.tsx"}}
+data: {"type":"text","text":"Done! The toggle is in the header."}
+event: done
+data: {}
+```
+
+**`POST /via/chat/reset`** — Clear conversation history.
+
+**`GET /via/health`** — Check if `ANTHROPIC_API_KEY` is configured.
+
+**`GET /via/error`** — Get the latest Vite build error (if any).
+
+## UI
+
+The plugin injects a `via` toggle button into your page. Click it to open the chat panel. Build errors get a "Fix This Error" button on the Vite error overlay.
+
+You can also open the chat UI directly at `http://localhost:5173/via/ui`.
 
 ## Development
 
 ```bash
 npm install
-npm run dev        # Start the playground dev server
-npm run build      # Build the plugin with tsup
-npm run typecheck  # Run TypeScript type checking
+npm run dev        # Playground dev server
+npm run build      # Build with tsup
 ```

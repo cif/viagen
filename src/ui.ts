@@ -335,6 +335,14 @@ export const VIAGEN_UI_HTML = `<!DOCTYPE html>
       inputEl.focus();
     });
 
+    // Accept messages from parent (e.g. "Fix This Error" button)
+    window.addEventListener('message', function(ev) {
+      if (ev.data && ev.data.type === 'viagen:send' && ev.data.message) {
+        inputEl.value = ev.data.message;
+        send();
+      }
+    });
+
     loadHistory();
   </script>
 </body>
