@@ -6,6 +6,19 @@ import { loadEnv, type Plugin, type Logger } from "vite";
 import type { IncomingMessage } from "node:http";
 import { VIAGEN_UI_HTML } from "./ui";
 
+export interface ViagenOptions {
+  /** Toggle button placement. Default: 'bottom-right' */
+  position?: "bottom-right" | "bottom-left" | "top-right" | "top-left";
+  /** Claude model to use. Default: 'sonnet' */
+  model?: string;
+  /** Chat panel width in px. Default: 420 */
+  panelWidth?: number;
+  /** Show "Fix This Error" button on Vite error overlay. Default: true */
+  overlay?: boolean;
+  /** Inject the toggle button + chat panel into pages. Default: true */
+  ui?: boolean;
+}
+
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = "";
@@ -89,18 +102,42 @@ interface ViteError {
   loc?: { file: string; line: number; column: number };
 }
 
-const VIAGEN_CLIENT_SCRIPT = /* js */ `
+function buildClientScript(opts: {
+  position: string;
+  panelWidth: number;
+  overlay: boolean;
+}): string {
+  const pos = opts.position;
+  const pw = opts.panelWidth;
+  const togglePos =
+    pos === "bottom-left"
+      ? "bottom:16px;left:16px;"
+      : pos === "top-right"
+        ? "top:16px;right:16px;"
+        : pos === "top-left"
+          ? "top:16px;left:16px;"
+          : "bottom:16px;right:16px;";
+  const panelSide = pos.includes("left") ? "left:0;" : "right:0;";
+  const toggleSideKey = pos.includes("left") ? "left" : "right";
+  const toggleClosedVal = "16px";
+  const toggleOpenVal = `${pw + 16}px`;
+
+  return /* js */ `
 (function() {
+  var OVERLAY_ENABLED = ${opts.overlay};
+
   /* ---- Error overlay: inject Fix button into shadow DOM ---- */
-  var observer = new MutationObserver(function(mutations) {
-    for (var i = 0; i < mutations.length; i++) {
-      var added = mutations[i].addedNodes;
-      for (var j = 0; j < added.length; j++) {
-        if (added[j].nodeName === 'VITE-ERROR-OVERLAY') injectFixButton(added[j]);
+  if (OVERLAY_ENABLED) {
+    var observer = new MutationObserver(function(mutations) {
+      for (var i = 0; i < mutations.length; i++) {
+        var added = mutations[i].addedNodes;
+        for (var j = 0; j < added.length; j++) {
+          if (added[j].nodeName === 'VITE-ERROR-OVERLAY') injectFixButton(added[j]);
+        }
       }
-    }
-  });
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  }
 
   function injectFixButton(overlay) {
     if (!overlay.shadowRoot) return;
@@ -110,7 +147,6 @@ const VIAGEN_CLIENT_SCRIPT = /* js */ `
       var win = root.querySelector('.window') || root.firstElementChild;
       if (!win) return;
 
-      // Inject styles for compact overlay + fixing state
       var style = document.createElement('style');
       style.textContent = [
         '.stack { display: none; }',
@@ -130,13 +166,11 @@ const VIAGEN_CLIENT_SCRIPT = /* js */ `
       ].join('\\n');
       root.appendChild(style);
 
-      // Fixing status banner
       var status = document.createElement('div');
       status.id = 'viagen-fixing-status';
       status.innerHTML = '<div class="label"><span class="dot">&#9679;</span> Fixing...</div><div class="sub">Claude is working on it. Check the chat panel.</div>';
       win.appendChild(status);
 
-      // Fix button
       var btn = document.createElement('button');
       btn.id = 'viagen-fix-btn';
       btn.textContent = 'Fix This Error';
@@ -159,7 +193,6 @@ const VIAGEN_CLIENT_SCRIPT = /* js */ `
         (e.loc ? e.loc.file + ':' + e.loc.line : 'unknown file') +
         ':\\n\\n' + e.message +
         (e.frame ? '\\n\\nCode frame:\\n' + e.frame : '');
-      // Open panel and route through chat UI
       var p = document.getElementById('viagen-panel');
       if (p && p.style.display === 'none') {
         var t = document.getElementById('viagen-toggle');
@@ -179,7 +212,7 @@ const VIAGEN_CLIENT_SCRIPT = /* js */ `
   var PANEL_KEY = 'viagen_panel_open';
   var panel = document.createElement('div');
   panel.id = 'viagen-panel';
-  panel.style.cssText = 'position:fixed;top:0;right:0;bottom:0;width:420px;z-index:99997;display:none;border-left:1px solid #27272a;box-shadow:-4px 0 24px rgba(0,0,0,0.5);';
+  panel.style.cssText = 'position:fixed;top:0;${panelSide}bottom:0;width:${pw}px;z-index:99997;display:none;border-left:1px solid #27272a;box-shadow:-4px 0 24px rgba(0,0,0,0.5);';
   var iframe = document.createElement('iframe');
   iframe.src = '/via/ui';
   iframe.style.cssText = 'width:100%;height:100%;border:none;background:#09090b;';
@@ -189,14 +222,14 @@ const VIAGEN_CLIENT_SCRIPT = /* js */ `
   var toggle = document.createElement('button');
   toggle.id = 'viagen-toggle';
   toggle.textContent = 'via';
-  toggle.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99998;padding:8px 14px;background:#18181b;color:#a1a1aa;border:1px solid #3f3f46;border-radius:20px;font-size:12px;font-weight:600;font-family:ui-monospace,monospace;cursor:pointer;letter-spacing:0.05em;transition:border-color 0.15s,color 0.15s,background 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+  toggle.style.cssText = 'position:fixed;${togglePos}z-index:99998;padding:8px 14px;background:#18181b;color:#a1a1aa;border:1px solid #3f3f46;border-radius:20px;font-size:12px;font-weight:600;font-family:ui-monospace,monospace;cursor:pointer;letter-spacing:0.05em;transition:border-color 0.15s,color 0.15s,background 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
   toggle.onmouseenter = function() { toggle.style.borderColor = '#71717a'; toggle.style.color = '#e4e4e7'; };
   toggle.onmouseleave = function() { if (panel.style.display === 'none') { toggle.style.borderColor = '#3f3f46'; toggle.style.color = '#a1a1aa'; } };
 
   function setPanelOpen(open) {
     panel.style.display = open ? 'block' : 'none';
     toggle.textContent = open ? 'x' : 'via';
-    toggle.style.right = open ? '436px' : '16px';
+    toggle.style.${toggleSideKey} = open ? '${toggleOpenVal}' : '${toggleClosedVal}';
     toggle.style.borderColor = open ? '#71717a' : '#3f3f46';
     toggle.style.color = open ? '#e4e4e7' : '#a1a1aa';
     toggle.style.background = open ? '#3f3f46' : '#18181b';
@@ -208,10 +241,10 @@ const VIAGEN_CLIENT_SCRIPT = /* js */ `
   });
   document.body.appendChild(toggle);
 
-  // Restore panel state
   try { if (sessionStorage.getItem(PANEL_KEY)) setPanelOpen(true); } catch(e) {}
 })();
 `;
+}
 
 function findClaudeBin(): string {
   // Vite always runs plugins as ESM, so import.meta.url is available
@@ -220,7 +253,15 @@ function findClaudeBin(): string {
   return pkgPath.replace("package.json", "cli.js");
 }
 
-export function viagen(): Plugin {
+export function viagen(options?: ViagenOptions): Plugin {
+  const opts = {
+    position: options?.position ?? "bottom-right",
+    model: options?.model ?? "sonnet",
+    panelWidth: options?.panelWidth ?? 420,
+    overlay: options?.overlay ?? true,
+    ui: options?.ui ?? true,
+  };
+
   let env: Record<string, string>;
   let projectRoot: string;
   let sessionId: string | undefined;
@@ -238,10 +279,15 @@ export function viagen(): Plugin {
       wrapLogger(config.logger, logBuffer);
     },
     transformIndexHtml() {
+      if (!opts.ui) return [];
       return [
         {
           tag: "script",
-          children: VIAGEN_CLIENT_SCRIPT,
+          children: buildClientScript({
+            position: opts.position,
+            panelWidth: opts.panelWidth,
+            overlay: opts.overlay,
+          }),
           injectTo: "body" as const,
         },
       ];
@@ -352,7 +398,7 @@ export function viagen(): Plugin {
           "--append-system-prompt",
           systemPrompt,
           "--model",
-          "sonnet",
+          opts.model,
         ];
 
         if (sessionId) {

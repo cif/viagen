@@ -22,6 +22,20 @@ export default defineConfig({
 
 Set `ANTHROPIC_API_KEY` in your `.env`, start the dev server.
 
+## Options
+
+```ts
+viagen({
+  position: 'bottom-right',  // toggle button: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
+  model: 'sonnet',           // claude model
+  panelWidth: 420,           // chat panel width in px
+  overlay: true,             // "Fix This Error" button on Vite error overlay
+  ui: true,                  // inject toggle button + chat panel into pages
+})
+```
+
+All options are optional. Defaults shown above.
+
 ## Endpoints
 
 **`POST /via/chat`** — Send a message, get a streamed response.
