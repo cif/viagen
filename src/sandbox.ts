@@ -106,32 +106,31 @@ export async function deploySandbox(
 
   try {
     if (useGit && opts.git) {
-      // Configure git identity for commits
+      // Configure git identity for commits (global so it works from any dir)
       await sandbox.runCommand("git", [
         "config",
+        "--global",
         "user.name",
         opts.git.userName,
       ]);
       await sandbox.runCommand("git", [
         "config",
+        "--global",
         "user.email",
         opts.git.userEmail,
       ]);
 
       // Configure credential helper so Claude can push
-      const credentialFile = "/vercel/sandbox/.git-credentials";
-      await sandbox.writeFiles([
-        {
-          path: ".git-credentials",
-          content: Buffer.from(
-            `https://x-access-token:${opts.git.token}@${extractHost(opts.git.remoteUrl)}\n`,
-          ),
-        },
+      // Use global config + home dir so it works regardless of cwd
+      await sandbox.runCommand("bash", [
+        "-c",
+        `echo 'https://x-access-token:${opts.git.token}@${extractHost(opts.git.remoteUrl)}' > ~/.git-credentials`,
       ]);
       await sandbox.runCommand("git", [
         "config",
+        "--global",
         "credential.helper",
-        `store --file=${credentialFile}`,
+        "store",
       ]);
 
       // Overlay dirty files if provided
