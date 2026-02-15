@@ -99,8 +99,8 @@ export async function deploySandbox(
       detached: true,
     });
 
-    const domain = sandbox.domain(5173);
-    const url = `https://${domain}?token=${token}`;
+    const baseUrl = sandbox.domain(5173);
+    const url = `${baseUrl}?token=${token}`;
 
     return {
       url,

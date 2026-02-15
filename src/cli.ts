@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
@@ -60,7 +58,11 @@ async function main() {
 
     // Default: deploy sandbox
     const cwd = process.cwd();
-    const env = { ...loadDotenv(cwd), ...process.env } as Record<string, string>;
+    const dotenv = loadDotenv(cwd);
+    for (const [key, val] of Object.entries(dotenv)) {
+      if (!process.env[key]) process.env[key] = val;
+    }
+    const env = { ...dotenv, ...process.env } as Record<string, string>;
 
     const apiKey = env["ANTHROPIC_API_KEY"];
     if (!apiKey) {

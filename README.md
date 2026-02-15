@@ -52,6 +52,10 @@ This creates an isolated microVM, uploads your project, installs dependencies, a
 npx viagen sandbox stop <sandboxId>   # Stop a running sandbox
 ```
 
+## CLI (coming soon)
+
+`npx viagen setup` — interactive setup that uses the Vercel CLI under the hood to log in, pick a team, link a project, and write all the credentials to `.env` so `npx viagen sandbox` just works.
+
 ## Auth
 
 Set `VIAGEN_AUTH_TOKEN` in `.env` to protect all endpoints. When set:

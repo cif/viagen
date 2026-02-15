@@ -50,6 +50,12 @@ export function viagen(options?: ViagenOptions): Plugin {
 
   return {
     name: "viagen",
+    config(_, { mode }) {
+      const e = loadEnv(mode, process.cwd(), "");
+      if (e["VIAGEN_AUTH_TOKEN"]) {
+        return { server: { allowedHosts: true as const } };
+      }
+    },
     configResolved(config) {
       env = loadEnv(config.mode, config.envDir ?? config.root, "");
       projectRoot = config.root;
