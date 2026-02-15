@@ -137,7 +137,8 @@ export default defineConfig({
   plugins: [viagen()],
 })
 
-// Add ANTHROPIC_API_KEY to .env, then:
+// Set up API keys, GitHub, and Vercel:
+// npx viagen setup
 // npm run dev</code></pre>
     </section>
 
@@ -173,7 +174,10 @@ export default defineConfig({
 
     <section>
       <h2>CLI</h2>
-      <pre><code># See all commands and env vars
+      <pre><code># Set up API keys, GitHub, and Vercel tokens
+npx viagen setup
+
+# See all commands and env vars
 npx viagen help
 
 # Deploy to a remote Vercel Sandbox

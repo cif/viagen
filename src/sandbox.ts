@@ -19,8 +19,14 @@ export interface GitInfo {
 interface DeploySandboxOptions {
   /** Project directory to upload (used in file-upload mode). */
   cwd: string;
-  /** Anthropic API key to inject into sandbox .env. */
-  apiKey: string;
+  /** Anthropic API key (mutually exclusive with oauth). */
+  apiKey?: string;
+  /** OAuth tokens from Max/Pro flow (mutually exclusive with apiKey). */
+  oauth?: {
+    accessToken: string;
+    refreshToken: string;
+    tokenExpires: string;
+  };
   /** If provided, clone the repo instead of uploading files. */
   git?: GitInfo;
   /** Dirty files to overlay on top of a git clone. */
@@ -146,10 +152,14 @@ export async function deploySandbox(
     }
 
     // Write .env with secrets
-    const envLines = [
-      `ANTHROPIC_API_KEY=${opts.apiKey}`,
-      `VIAGEN_AUTH_TOKEN=${token}`,
-    ];
+    const envLines = [`VIAGEN_AUTH_TOKEN=${token}`];
+    if (opts.apiKey) {
+      envLines.push(`ANTHROPIC_API_KEY=${opts.apiKey}`);
+    } else if (opts.oauth) {
+      envLines.push(`CLAUDE_ACCESS_TOKEN=${opts.oauth.accessToken}`);
+      envLines.push(`CLAUDE_REFRESH_TOKEN=${opts.oauth.refreshToken}`);
+      envLines.push(`CLAUDE_TOKEN_EXPIRES=${opts.oauth.tokenExpires}`);
+    }
     if (opts.git) {
       envLines.push(`GITHUB_TOKEN=${opts.git.token}`);
     }

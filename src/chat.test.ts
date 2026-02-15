@@ -32,7 +32,7 @@ describe("chat routes — validation", () => {
     expect(await res.json()).toEqual({ error: "Method not allowed" });
   });
 
-  it("returns 500 when ANTHROPIC_API_KEY is missing", async () => {
+  it("returns 500 when no Claude auth is configured", async () => {
     const res = await fetch(`${server.url}/via/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -40,7 +40,7 @@ describe("chat routes — validation", () => {
     });
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({
-      error: "ANTHROPIC_API_KEY not configured",
+      error: "No Claude auth configured. Run `npx viagen setup`.",
     });
   });
 

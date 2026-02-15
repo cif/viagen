@@ -394,9 +394,9 @@ export function buildUiHtml(): string {
           dot.className = 'status-dot error';
           inputEl.disabled = true;
           sendBtn.disabled = true;
-          inputEl.placeholder = 'API key not configured';
+          inputEl.placeholder = 'Not configured — run npx viagen setup';
           banner.style.display = 'block';
-          banner.innerHTML = 'Set <code>ANTHROPIC_API_KEY</code> in your <code>.env</code> file and restart the dev server.<br><a href="/via/docs" target="_top" style="color:#71717a;text-decoration:underline;text-underline-offset:2px;">Setup docs</a>';
+          banner.innerHTML = 'Run <code>npx viagen setup</code> to configure auth, then restart the dev server.';
         }
       })
       .catch(function() {

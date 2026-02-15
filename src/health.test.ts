@@ -25,7 +25,7 @@ describe("health routes", () => {
     it("returns ok when API key is configured", async () => {
       const res = await fetch(`${server.url}/via/health`);
       expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ status: "ok", configured: true });
+      expect(await res.json()).toEqual({ status: "ok", configured: true, git: false });
     });
   });
 
@@ -72,7 +72,7 @@ describe("health routes — missing API key", () => {
     expect(body).toEqual({
       status: "error",
       configured: false,
-      missing: ["ANTHROPIC_API_KEY"],
+      git: false,
     });
   });
 });

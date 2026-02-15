@@ -1,8 +1,10 @@
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 import { createInterface } from "node:readline";
+import { homedir } from "node:os";
 import { deploySandbox, stopSandbox, collectFiles } from "./sandbox";
+import { oauthMaxFlow, oauthConsoleFlow } from "./oauth";
 import type { GitInfo } from "./sandbox";
 
 function loadDotenv(dir: string): Record<string, string> {
@@ -23,16 +25,36 @@ function loadDotenv(dir: string): Record<string, string> {
   return vars;
 }
 
+function writeEnvVars(dir: string, vars: Record<string, string>) {
+  const envPath = join(dir, ".env");
+  let content = "";
+  if (existsSync(envPath)) {
+    content = readFileSync(envPath, "utf-8");
+  }
+
+  const existing = loadDotenv(dir);
+  const toAdd: string[] = [];
+
+  for (const [key, val] of Object.entries(vars)) {
+    if (existing[key]) continue;
+    toAdd.push(`${key}=${val}`);
+  }
+
+  if (toAdd.length === 0) return;
+
+  if (content.length > 0 && !content.endsWith("\n")) {
+    content += "\n";
+  }
+  content += toAdd.join("\n") + "\n";
+  writeFileSync(envPath, content);
+}
+
 function openBrowser(url: string) {
   try {
     const platform = process.platform;
-    if (platform === "darwin") {
-      execSync(`open "${url}"`);
-    } else if (platform === "linux") {
-      execSync(`xdg-open "${url}"`);
-    } else if (platform === "win32") {
-      execSync(`start "${url}"`);
-    }
+    if (platform === "darwin") execSync(`open "${url}"`);
+    else if (platform === "linux") execSync(`xdg-open "${url}"`);
+    else if (platform === "win32") execSync(`start "${url}"`);
   } catch {
     // Silent fail — user can open manually
   }
@@ -47,18 +69,20 @@ interface LocalGitInfo {
 }
 
 function git(cwd: string, args: string): string {
-  return execSync(`git ${args}`, { cwd, stdio: "pipe", encoding: "utf-8" }).trim();
+  return execSync(`git ${args}`, {
+    cwd,
+    stdio: "pipe",
+    encoding: "utf-8",
+  }).trim();
 }
 
 function sshToHttps(url: string): string {
   if (url.startsWith("https://")) return url;
   if (url.startsWith("http://")) return url.replace(/^http:\/\//, "https://");
 
-  // git@host:user/repo.git
   const shorthand = url.match(/^[\w.-]+@([\w.-]+):([\w./_-]+)$/);
   if (shorthand) return `https://${shorthand[1]}/${shorthand[2]}`;
 
-  // ssh://git@host/user/repo.git
   const sshUrl = url.match(/^ssh:\/\/[\w.-]+@([\w.-]+)\/([\w./_-]+)$/);
   if (sshUrl) return `https://${sshUrl[1]}/${sshUrl[2]}`;
 
@@ -82,7 +106,13 @@ function getGitInfo(cwd: string): LocalGitInfo | null {
     const remoteUrl = sshToHttps(remoteUrlRaw);
     if (!remoteUrl || !branch) return null;
 
-    return { remoteUrl, branch, userName, userEmail, isDirty: status.length > 0 };
+    return {
+      remoteUrl,
+      branch,
+      userName,
+      userEmail,
+      isDirty: status.length > 0,
+    };
   } catch {
     return null;
   }
@@ -100,97 +130,344 @@ function promptUser(question: string): Promise<string> {
   });
 }
 
-async function main() {
-  const args = process.argv.slice(2);
-  const command = args[0];
+function shellOk(cmd: string): boolean {
+  try {
+    execSync(cmd, { stdio: "pipe" });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-  if (command === "sandbox") {
-    const subcommand = args[1];
+function shellOutput(cmd: string): string | null {
+  try {
+    return execSync(cmd, { stdio: "pipe", encoding: "utf-8" }).trim();
+  } catch {
+    return null;
+  }
+}
 
-    if (subcommand === "stop") {
-      const sandboxId = args[2];
-      if (!sandboxId) {
-        console.error("Usage: viagen sandbox stop <sandboxId>");
-        process.exit(1);
-      }
+function getVercelConfigDir(): string {
+  const platform = process.platform;
+  if (platform === "darwin") {
+    return join(homedir(), "Library", "Application Support", "com.vercel.cli");
+  } else if (platform === "win32") {
+    return join(
+      process.env["APPDATA"] || join(homedir(), "AppData", "Roaming"),
+      "com.vercel.cli",
+    );
+  } else {
+    return join(
+      process.env["XDG_DATA_HOME"] || join(homedir(), ".local", "share"),
+      "com.vercel.cli",
+    );
+  }
+}
 
-      console.log(`Stopping sandbox ${sandboxId}...`);
-      await stopSandbox(sandboxId);
-      console.log("Sandbox stopped.");
-      return;
-    }
+// ─── setup command ───────────────────────────────────────────────
 
-    // Default: deploy sandbox
-    const cwd = process.cwd();
-    const dotenv = loadDotenv(cwd);
-    for (const [key, val] of Object.entries(dotenv)) {
-      if (!process.env[key]) process.env[key] = val;
-    }
-    const env = { ...dotenv, ...process.env } as Record<string, string>;
+async function setup() {
+  const cwd = process.cwd();
+  const existing = loadDotenv(cwd);
+  const newVars: Record<string, string> = {};
 
-    const apiKey = env["ANTHROPIC_API_KEY"];
-    if (!apiKey) {
-      console.error("Error: ANTHROPIC_API_KEY not found.");
-      console.error("Set it in .env or as an environment variable.");
-      process.exit(1);
-    }
+  console.log("viagen setup");
+  console.log("");
 
-    // Check for Vercel auth
-    const hasOidc = !!env["VERCEL_OIDC_TOKEN"];
-    const hasToken =
-      !!env["VERCEL_TOKEN"] &&
-      !!env["VERCEL_TEAM_ID"] &&
-      !!env["VERCEL_PROJECT_ID"];
+  // Step 1: Claude authentication
+  if (existing["ANTHROPIC_API_KEY"] || existing["CLAUDE_ACCESS_TOKEN"]) {
+    console.log("Claude auth ... already configured");
+  } else {
+    console.log("How do you want to authenticate with Claude?");
+    console.log("");
+    console.log("  1) Log in with Claude Max/Pro (recommended)");
+    console.log("  2) Log in with Anthropic Console (creates API key)");
+    console.log("  3) Paste an existing API key");
+    console.log("");
 
-    if (!hasOidc && !hasToken) {
-      console.error("Error: Vercel authentication not configured.");
-      console.error("");
-      console.error("Option 1: Run `vercel link && vercel env pull`");
-      console.error(
-        "Option 2: Set VERCEL_TOKEN, VERCEL_TEAM_ID, and VERCEL_PROJECT_ID",
+    const choice = await promptUser("Choose [1/2/3]: ");
+
+    if (choice === "1" || !choice) {
+      const tokens = await oauthMaxFlow();
+      newVars["CLAUDE_ACCESS_TOKEN"] = tokens.access_token;
+      newVars["CLAUDE_REFRESH_TOKEN"] = tokens.refresh_token;
+      newVars["CLAUDE_TOKEN_EXPIRES"] = String(
+        Math.floor(Date.now() / 1000) + tokens.expires_in,
       );
+      console.log("Claude auth ... Max/Pro tokens saved");
+    } else if (choice === "2") {
+      const apiKey = await oauthConsoleFlow();
+      newVars["ANTHROPIC_API_KEY"] = apiKey;
+      console.log("Claude auth ... API key created");
+    } else {
+      const key = await promptUser("Paste your ANTHROPIC_API_KEY: ");
+      if (key) {
+        newVars["ANTHROPIC_API_KEY"] = key;
+        console.log("Claude auth ... API key saved");
+      } else {
+        console.log("Claude auth ... skipped");
+      }
+    }
+  }
+
+  console.log("");
+
+  // Step 2: GitHub
+  if (existing["GITHUB_TOKEN"]) {
+    console.log("GitHub       ... already configured");
+  } else if (!shellOk("which gh")) {
+    console.log("GitHub CLI (gh) is not installed.");
+    console.log("Without it, sandboxes can't commit or push changes.");
+    console.log("");
+    const install = await promptUser("Install gh now? [y/n]: ");
+    if (install === "y" || install === "yes") {
+      console.log("");
+      console.log("Installing gh...");
+      try {
+        execSync("brew install gh", { stdio: "inherit" });
+        console.log("");
+        console.log("Running gh auth login...");
+        execSync("gh auth login", { stdio: "inherit" });
+        const token = shellOutput("gh auth token");
+        if (token) {
+          newVars["GITHUB_TOKEN"] = token;
+          console.log("GitHub       ... configured");
+        }
+      } catch {
+        console.log("GitHub       ... install failed, skipping");
+      }
+    } else {
+      console.log("GitHub       ... skipped");
+    }
+  } else if (shellOk("gh auth status")) {
+    const token = shellOutput("gh auth token");
+    if (token) {
+      newVars["GITHUB_TOKEN"] = token;
+      console.log("GitHub       ... token from gh CLI");
+    }
+  } else {
+    console.log("gh CLI is installed but not logged in.");
+    console.log("Without it, sandboxes can't commit or push changes.");
+    console.log("");
+    const login = await promptUser("Run gh auth login now? [y/n]: ");
+    if (login === "y" || login === "yes") {
+      try {
+        execSync("gh auth login", { stdio: "inherit" });
+        const token = shellOutput("gh auth token");
+        if (token) {
+          newVars["GITHUB_TOKEN"] = token;
+          console.log("GitHub       ... configured");
+        }
+      } catch {
+        console.log("GitHub       ... login failed, skipping");
+      }
+    } else {
+      console.log("GitHub       ... skipped");
+    }
+  }
+
+  console.log("");
+
+  // Step 3: Vercel
+  const hasVercel =
+    existing["VERCEL_TOKEN"] &&
+    existing["VERCEL_TEAM_ID"] &&
+    existing["VERCEL_PROJECT_ID"];
+
+  if (hasVercel) {
+    console.log("Vercel       ... already configured");
+  } else if (!shellOk("which vercel")) {
+    console.log("Vercel CLI is not installed.");
+    console.log("Sandbox deployment requires Vercel.");
+    console.log("");
+    const install = await promptUser("Install vercel now? [y/n]: ");
+    if (install === "y" || install === "yes") {
+      console.log("");
+      console.log("Installing vercel...");
+      try {
+        execSync("npm i -g vercel", { stdio: "inherit" });
+        console.log("");
+        console.log("Running vercel login...");
+        execSync("vercel login", { stdio: "inherit" });
+      } catch {
+        console.log("Vercel       ... install failed, skipping");
+      }
+    }
+
+    // Check if it worked (whether we just installed or user said no)
+    if (!shellOk("which vercel") || !shellOk("vercel whoami")) {
+      console.log("Vercel       ... not configured (sandbox won't work)");
+    }
+  }
+
+  // Vercel is installed — configure it (runs for both fresh install and existing)
+  if (!hasVercel && shellOk("vercel whoami")) {
+    // Link project if needed
+    const projectJsonPath = join(cwd, ".vercel", "project.json");
+    if (!existsSync(projectJsonPath)) {
+      console.log("Vercel       ... linking project...");
+      execSync("vercel link --yes", { cwd, stdio: "inherit" });
+    }
+
+    // Read project IDs
+    if (existsSync(projectJsonPath)) {
+      const project = JSON.parse(readFileSync(projectJsonPath, "utf-8")) as {
+        orgId: string;
+        projectId: string;
+      };
+      if (!existing["VERCEL_TEAM_ID"]) {
+        newVars["VERCEL_TEAM_ID"] = project.orgId;
+      }
+      if (!existing["VERCEL_PROJECT_ID"]) {
+        newVars["VERCEL_PROJECT_ID"] = project.projectId;
+      }
+    }
+
+    // Read auth token
+    if (!existing["VERCEL_TOKEN"]) {
+      const authPath = join(getVercelConfigDir(), "auth.json");
+      if (existsSync(authPath)) {
+        const auth = JSON.parse(readFileSync(authPath, "utf-8")) as {
+          token: string;
+        };
+        newVars["VERCEL_TOKEN"] = auth.token;
+      }
+    }
+
+    console.log("Vercel       ... configured from CLI");
+  } else if (!hasVercel && shellOk("which vercel")) {
+    // Installed but not logged in
+    console.log("Vercel CLI is installed but not logged in.");
+    console.log("Sandbox deployment requires Vercel auth.");
+    console.log("");
+    const login = await promptUser("Run vercel login now? [y/n]: ");
+    if (login === "y" || login === "yes") {
+      try {
+        execSync("vercel login", { stdio: "inherit" });
+      } catch {
+        console.log("Vercel       ... login failed");
+      }
+    }
+
+    if (shellOk("vercel whoami")) {
+      // Login succeeded — link and configure
+      const projectJsonPath2 = join(cwd, ".vercel", "project.json");
+      if (!existsSync(projectJsonPath2)) {
+        console.log("Vercel       ... linking project...");
+        execSync("vercel link --yes", { cwd, stdio: "inherit" });
+      }
+      if (existsSync(projectJsonPath2)) {
+        const project = JSON.parse(readFileSync(projectJsonPath2, "utf-8")) as {
+          orgId: string;
+          projectId: string;
+        };
+        if (!existing["VERCEL_TEAM_ID"]) newVars["VERCEL_TEAM_ID"] = project.orgId;
+        if (!existing["VERCEL_PROJECT_ID"]) newVars["VERCEL_PROJECT_ID"] = project.projectId;
+      }
+      if (!existing["VERCEL_TOKEN"]) {
+        const authPath2 = join(getVercelConfigDir(), "auth.json");
+        if (existsSync(authPath2)) {
+          const auth = JSON.parse(readFileSync(authPath2, "utf-8")) as { token: string };
+          newVars["VERCEL_TOKEN"] = auth.token;
+        }
+      }
+      console.log("Vercel       ... configured");
+    } else {
+      console.log("Vercel       ... not configured (sandbox won't work)");
+    }
+  }
+
+  console.log("");
+
+  // Step 4: Write .env
+  if (Object.keys(newVars).length > 0) {
+    writeEnvVars(cwd, newVars);
+    console.log("Wrote to .env:");
+    for (const key of Object.keys(newVars)) {
+      const display =
+        key.includes("TOKEN") || key.includes("KEY") || key.includes("SECRET")
+          ? newVars[key].slice(0, 8) + "..."
+          : newVars[key];
+      console.log(`  ${key}=${display}`);
+    }
+  } else {
+    console.log("Nothing new to write — .env is already configured.");
+  }
+
+  console.log("");
+  console.log("Next steps:");
+  console.log("  npm run dev          Start the dev server");
+  console.log("  npx viagen sandbox   Deploy to a sandbox");
+}
+
+// ─── sandbox command ─────────────────────────────────────────────
+
+async function sandbox(args: string[]) {
+  const subcommand = args[0];
+
+  if (subcommand === "stop") {
+    const sandboxId = args[1];
+    if (!sandboxId) {
+      console.error("Usage: viagen sandbox stop <sandboxId>");
       process.exit(1);
     }
 
-    // Git detection
-    const githubToken = env["GITHUB_TOKEN"];
-    const gitInfo = getGitInfo(cwd);
+    console.log(`Stopping sandbox ${sandboxId}...`);
+    await stopSandbox(sandboxId);
+    console.log("Sandbox stopped.");
+    return;
+  }
 
-    let deployGit: GitInfo | undefined;
-    let overlayFiles: { path: string; content: Buffer }[] | undefined;
+  // Default: deploy sandbox
+  const cwd = process.cwd();
+  const dotenv = loadDotenv(cwd);
+  for (const [key, val] of Object.entries(dotenv)) {
+    if (!process.env[key]) process.env[key] = val;
+  }
+  const env = { ...dotenv, ...process.env } as Record<string, string>;
 
-    if (gitInfo && githubToken) {
-      if (gitInfo.isDirty) {
-        console.log("");
-        console.log("Your working tree has uncommitted changes.");
-        console.log("");
-        console.log("  1) Clone from remote (clean) — full git, can push");
-        console.log("  2) Upload local files — includes changes, no git");
-        console.log("  3) Clone + overlay — git history + your local changes (default)");
-        console.log("");
-        let answer = await promptUser("Choose mode [1/2/3]: ");
-        if (!answer || answer === "3") {
-          deployGit = {
-            remoteUrl: gitInfo.remoteUrl,
-            branch: gitInfo.branch,
-            userName: gitInfo.userName,
-            userEmail: gitInfo.userEmail,
-            token: githubToken,
-          };
-          overlayFiles = collectFiles(cwd, cwd);
-        } else if (answer === "1") {
-          deployGit = {
-            remoteUrl: gitInfo.remoteUrl,
-            branch: gitInfo.branch,
-            userName: gitInfo.userName,
-            userEmail: gitInfo.userEmail,
-            token: githubToken,
-          };
-        } else {
-          console.log("Note: Sandbox is ephemeral — changes can't be pushed.");
-        }
-      } else {
-        // Clean tree — default to git clone
+  const hasApiKey = !!env["ANTHROPIC_API_KEY"];
+  const hasOAuth = !!env["CLAUDE_ACCESS_TOKEN"];
+  if (!hasApiKey && !hasOAuth) {
+    console.error(
+      "Error: No Claude auth found. Run `npx viagen setup` first.",
+    );
+    process.exit(1);
+  }
+
+  const hasOidc = !!env["VERCEL_OIDC_TOKEN"];
+  const hasToken =
+    !!env["VERCEL_TOKEN"] &&
+    !!env["VERCEL_TEAM_ID"] &&
+    !!env["VERCEL_PROJECT_ID"];
+
+  if (!hasOidc && !hasToken) {
+    console.error(
+      "Error: Vercel not configured. Run `npx viagen setup` first.",
+    );
+    process.exit(1);
+  }
+
+  // Git detection
+  const githubToken = env["GITHUB_TOKEN"];
+  const gitInfo = getGitInfo(cwd);
+
+  let deployGit: GitInfo | undefined;
+  let overlayFiles: { path: string; content: Buffer }[] | undefined;
+
+  if (gitInfo && githubToken) {
+    if (gitInfo.isDirty) {
+      console.log("");
+      console.log("Your working tree has uncommitted changes.");
+      console.log("");
+      console.log("  1) Clone from remote (clean) — full git, can push");
+      console.log("  2) Upload local files — includes changes, no git");
+      console.log(
+        "  3) Clone + overlay — git history + your local changes (default)",
+      );
+      console.log("");
+      const answer = await promptUser("Choose mode [1/2/3]: ");
+      if (!answer || answer === "3") {
         deployGit = {
           remoteUrl: gitInfo.remoteUrl,
           branch: gitInfo.branch,
@@ -198,59 +475,133 @@ async function main() {
           userEmail: gitInfo.userEmail,
           token: githubToken,
         };
+        overlayFiles = collectFiles(cwd, cwd);
+      } else if (answer === "1") {
+        deployGit = {
+          remoteUrl: gitInfo.remoteUrl,
+          branch: gitInfo.branch,
+          userName: gitInfo.userName,
+          userEmail: gitInfo.userEmail,
+          token: githubToken,
+        };
+      } else {
+        console.log("Note: Sandbox is ephemeral — changes can't be pushed.");
       }
-    } else if (gitInfo && !githubToken) {
-      console.log("Note: No GITHUB_TOKEN set — changes from the sandbox can't be saved.");
     } else {
-      console.log("Note: Not a git repo — sandbox will use file upload (ephemeral).");
+      deployGit = {
+        remoteUrl: gitInfo.remoteUrl,
+        branch: gitInfo.branch,
+        userName: gitInfo.userName,
+        userEmail: gitInfo.userEmail,
+        token: githubToken,
+      };
     }
-
-    console.log("");
-    console.log("Creating sandbox...");
-    if (deployGit) {
-      console.log(`  Repo:   ${deployGit.remoteUrl}`);
-      console.log(`  Branch: ${deployGit.branch}`);
-    }
-
-    const result = await deploySandbox({ cwd, apiKey, git: deployGit, overlayFiles });
-
-    console.log("");
-    console.log("Sandbox deployed!");
-    console.log("");
-    console.log(`  URL:        ${result.url}`);
-    console.log(`  Sandbox ID: ${result.sandboxId}`);
-    console.log(`  Mode:       ${result.mode === "git" ? "git clone (can push)" : "file upload (ephemeral)"}`);
-    console.log(`  Token:      ${result.token}`);
-    console.log("");
-    console.log(`Stop with: npx viagen sandbox stop ${result.sandboxId}`);
-
-    openBrowser(result.url);
+  } else if (gitInfo && !githubToken) {
+    console.log(
+      "Note: No GITHUB_TOKEN set — changes from the sandbox can't be saved.",
+    );
   } else {
-    console.log("viagen — Claude Code in your Vite dev server");
-    console.log("");
-    console.log("Usage:");
-    console.log("  viagen <command>");
-    console.log("");
-    console.log("Commands:");
-    console.log("  sandbox           Deploy your project to a Vercel Sandbox");
-    console.log("  sandbox stop <id> Stop a running sandbox");
-    console.log("  help              Show this help message");
-    console.log("");
-    console.log("Getting started:");
-    console.log("  1. npm install viagen");
-    console.log("  2. Add viagen() to your vite.config.ts plugins");
-    console.log("  3. Set ANTHROPIC_API_KEY in .env");
-    console.log("  4. npm run dev");
-    console.log("");
-    console.log("Environment variables (.env):");
-    console.log("  ANTHROPIC_API_KEY   Required. Your Anthropic API key.");
-    console.log("  GITHUB_TOKEN        Optional. Enables git commit+push from sandbox.");
-    console.log("  VIAGEN_AUTH_TOKEN   Optional. Protects all endpoints with token auth.");
-    console.log("  VERCEL_TOKEN        Required for sandbox. Vercel access token.");
-    console.log("  VERCEL_TEAM_ID      Required for sandbox. From .vercel/project.json (orgId).");
-    console.log("  VERCEL_PROJECT_ID   Required for sandbox. From .vercel/project.json (projectId).");
-    console.log("");
-    console.log("Docs: http://localhost:5173/via/docs (when dev server is running)");
+    console.log(
+      "Note: Not a git repo — sandbox will use file upload (ephemeral).",
+    );
+  }
+
+  console.log("");
+  console.log("Creating sandbox...");
+  if (deployGit) {
+    console.log(`  Repo:   ${deployGit.remoteUrl}`);
+    console.log(`  Branch: ${deployGit.branch}`);
+  }
+
+  const result = await deploySandbox({
+    cwd,
+    apiKey: hasApiKey ? env["ANTHROPIC_API_KEY"] : undefined,
+    oauth: hasOAuth
+      ? {
+          accessToken: env["CLAUDE_ACCESS_TOKEN"],
+          refreshToken: env["CLAUDE_REFRESH_TOKEN"],
+          tokenExpires: env["CLAUDE_TOKEN_EXPIRES"],
+        }
+      : undefined,
+    git: deployGit,
+    overlayFiles,
+  });
+
+  console.log("");
+  console.log("Sandbox deployed!");
+  console.log("");
+  console.log(`  URL:        ${result.url}`);
+  console.log(`  Sandbox ID: ${result.sandboxId}`);
+  console.log(
+    `  Mode:       ${result.mode === "git" ? "git clone (can push)" : "file upload (ephemeral)"}`,
+  );
+  console.log(`  Token:      ${result.token}`);
+  console.log("");
+  console.log(`Stop with: npx viagen sandbox stop ${result.sandboxId}`);
+
+  openBrowser(result.url);
+}
+
+// ─── help ────────────────────────────────────────────────────────
+
+function help() {
+  console.log("viagen — Claude Code in your Vite dev server");
+  console.log("");
+  console.log("Usage:");
+  console.log("  viagen <command>");
+  console.log("");
+  console.log("Commands:");
+  console.log("  setup              Set up .env with API keys and tokens");
+  console.log("  sandbox            Deploy your project to a Vercel Sandbox");
+  console.log("  sandbox stop <id>  Stop a running sandbox");
+  console.log("  help               Show this help message");
+  console.log("");
+  console.log("Getting started:");
+  console.log("  1. npm install viagen");
+  console.log("  2. Add viagen() to your vite.config.ts plugins");
+  console.log("  3. npx viagen setup");
+  console.log("  4. npm run dev");
+  console.log("");
+  console.log("Environment variables (.env):");
+  console.log(
+    "  ANTHROPIC_API_KEY      Claude API key (from console or setup).",
+  );
+  console.log(
+    "  CLAUDE_ACCESS_TOKEN    Claude Max/Pro OAuth token (from setup).",
+  );
+  console.log(
+    "  GITHUB_TOKEN           Enables git commit+push from sandbox.",
+  );
+  console.log(
+    "  VIAGEN_AUTH_TOKEN      Protects all endpoints with token auth.",
+  );
+  console.log(
+    "  VERCEL_TOKEN           Vercel access token (for sandbox).",
+  );
+  console.log(
+    "  VERCEL_TEAM_ID         Vercel team ID (for sandbox).",
+  );
+  console.log(
+    "  VERCEL_PROJECT_ID      Vercel project ID (for sandbox).",
+  );
+  console.log("");
+  console.log(
+    "Docs: http://localhost:5173/via/docs (when dev server is running)",
+  );
+}
+
+// ─── main ────────────────────────────────────────────────────────
+
+async function main() {
+  const args = process.argv.slice(2);
+  const command = args[0];
+
+  if (command === "setup") {
+    await setup();
+  } else if (command === "sandbox") {
+    await sandbox(args.slice(1));
+  } else {
+    help();
   }
 }
 

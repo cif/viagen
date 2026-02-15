@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import type { IncomingMessage } from "node:http";
 import type { ViteDevServer } from "vite";
 import type { LogBuffer } from "./logger";
+import { refreshAccessToken } from "./oauth";
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -46,12 +47,34 @@ export function registerChatRoutes(
       return;
     }
 
-    if (!opts.env["ANTHROPIC_API_KEY"]) {
+    const hasApiKey = !!opts.env["ANTHROPIC_API_KEY"];
+    const hasOAuthToken = !!opts.env["CLAUDE_ACCESS_TOKEN"];
+
+    if (!hasApiKey && !hasOAuthToken) {
       res.statusCode = 500;
       res.end(
-        JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }),
+        JSON.stringify({ error: "No Claude auth configured. Run `npx viagen setup`." }),
       );
       return;
+    }
+
+    // Refresh OAuth token if expired
+    if (hasOAuthToken && opts.env["CLAUDE_TOKEN_EXPIRES"]) {
+      const expires = parseInt(opts.env["CLAUDE_TOKEN_EXPIRES"], 10);
+      if (Date.now() / 1000 > expires - 60) {
+        try {
+          const tokens = await refreshAccessToken(opts.env["CLAUDE_REFRESH_TOKEN"]);
+          opts.env["CLAUDE_ACCESS_TOKEN"] = tokens.access_token;
+          opts.env["CLAUDE_REFRESH_TOKEN"] = tokens.refresh_token;
+          opts.env["CLAUDE_TOKEN_EXPIRES"] = String(
+            Math.floor(Date.now() / 1000) + tokens.expires_in,
+          );
+        } catch {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: "OAuth token refresh failed. Run `npx viagen setup` again." }));
+          return;
+        }
+      }
     }
 
     let message: string;
@@ -100,13 +123,19 @@ export function registerChatRoutes(
 
     args.push(message);
 
+    const childEnv: Record<string, string> = {
+      ...process.env as Record<string, string>,
+      CLAUDECODE: "",
+    };
+    if (hasApiKey) {
+      childEnv["ANTHROPIC_API_KEY"] = opts.env["ANTHROPIC_API_KEY"];
+    } else if (hasOAuthToken) {
+      childEnv["CLAUDE_CODE_OAUTH_TOKEN"] = opts.env["CLAUDE_ACCESS_TOKEN"];
+    }
+
     const child: ChildProcess = spawn("node", args, {
       cwd: opts.projectRoot,
-      env: {
-        ...process.env,
-        ANTHROPIC_API_KEY: opts.env["ANTHROPIC_API_KEY"],
-        CLAUDECODE: "",
-      },
+      env: childEnv,
       stdio: ["ignore", "pipe", "pipe"],
     });
 

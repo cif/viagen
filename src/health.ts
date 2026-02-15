@@ -19,18 +19,17 @@ export function registerHealthRoutes(
   });
 
   server.middlewares.use("/via/health", (_req, res) => {
-    const required = ["ANTHROPIC_API_KEY"];
-    const missing = required.filter((key) => !env[key]);
+    const configured =
+      !!env["ANTHROPIC_API_KEY"] || !!env["CLAUDE_ACCESS_TOKEN"];
+    const git = !!env["GITHUB_TOKEN"];
 
     res.setHeader("Content-Type", "application/json");
 
-    const git = !!env["GITHUB_TOKEN"];
-
-    if (missing.length === 0) {
+    if (configured) {
       res.end(JSON.stringify({ status: "ok", configured: true, git }));
     } else {
       res.end(
-        JSON.stringify({ status: "error", configured: false, missing, git }),
+        JSON.stringify({ status: "error", configured: false, git }),
       );
     }
   });
