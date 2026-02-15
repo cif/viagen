@@ -425,6 +425,8 @@ async function sandbox(args: string[]) {
   }
 
   const branchOverride = parseFlag(args, "--branch") || parseFlag(args, "-b");
+  const timeoutFlag = parseFlag(args, "--timeout") || parseFlag(args, "-t");
+  const timeoutMinutes = timeoutFlag ? parseInt(timeoutFlag, 10) : undefined;
 
   // Default: deploy sandbox
   const cwd = process.cwd();
@@ -525,6 +527,7 @@ async function sandbox(args: string[]) {
       : undefined,
     git: deployGit,
     overlayFiles,
+    timeoutMinutes,
   });
 
   console.log("");
@@ -536,6 +539,7 @@ async function sandbox(args: string[]) {
     `  Mode:       ${result.mode === "git" ? "git clone (can push)" : "file upload (ephemeral)"}`,
   );
   console.log(`  Token:      ${result.token}`);
+  console.log(`  Timeout:    ${timeoutMinutes ?? 30} minutes`);
   console.log("");
   console.log(`Stop with: npx viagen sandbox stop ${result.sandboxId}`);
 
@@ -551,10 +555,14 @@ function help() {
   console.log("  viagen <command>");
   console.log("");
   console.log("Commands:");
-  console.log("  setup                    Set up .env with API keys and tokens");
-  console.log("  sandbox [-b <branch>]    Deploy your project to a Vercel Sandbox");
-  console.log("  sandbox stop <id>        Stop a running sandbox");
-  console.log("  help                     Show this help message");
+  console.log("  setup                          Set up .env with API keys and tokens");
+  console.log("  sandbox [-b branch] [-t min]   Deploy your project to a Vercel Sandbox");
+  console.log("  sandbox stop <id>              Stop a running sandbox");
+  console.log("  help                           Show this help message");
+  console.log("");
+  console.log("Sandbox options:");
+  console.log("  -b, --branch <name>   Branch to clone (default: current branch)");
+  console.log("  -t, --timeout <min>   Sandbox timeout in minutes (default: 30)");
   console.log("");
   console.log("Getting started:");
   console.log("  1. npm install viagen");

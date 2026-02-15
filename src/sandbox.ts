@@ -31,6 +31,8 @@ interface DeploySandboxOptions {
   git?: GitInfo;
   /** Dirty files to overlay on top of a git clone. */
   overlayFiles?: { path: string; content: Buffer }[];
+  /** Sandbox timeout in minutes (default: 30, max depends on Vercel plan). */
+  timeoutMinutes?: number;
 }
 
 interface DeploySandboxResult {
@@ -93,10 +95,13 @@ export async function deploySandbox(
   const token = randomUUID();
   const useGit = !!opts.git;
 
+  const timeoutMs = (opts.timeoutMinutes ?? 30) * 60 * 1000;
+
   // Create sandbox — with git source or bare
   const sandbox = await Sandbox.create({
     runtime: "node22",
     ports: [5173],
+    timeout: timeoutMs,
     ...(opts.git
       ? {
           source: {
