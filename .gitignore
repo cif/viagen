@@ -14,6 +14,7 @@ dist-ssr
 
 # Environment
 .env
+.env.bk
 
 # Viagen runtime logs
 .viagen/
