@@ -228,13 +228,29 @@ async function main() {
   } else {
     console.log("viagen — Claude Code in your Vite dev server");
     console.log("");
-    console.log("Commands:");
-    console.log("  viagen sandbox           Deploy to a Vercel Sandbox");
-    console.log("  viagen sandbox stop <id> Stop a running sandbox");
+    console.log("Usage:");
+    console.log("  viagen <command>");
     console.log("");
-    console.log("As a Vite plugin:");
-    console.log("  npm install viagen");
-    console.log("  Add viagen() to your vite.config.ts plugins");
+    console.log("Commands:");
+    console.log("  sandbox           Deploy your project to a Vercel Sandbox");
+    console.log("  sandbox stop <id> Stop a running sandbox");
+    console.log("  help              Show this help message");
+    console.log("");
+    console.log("Getting started:");
+    console.log("  1. npm install viagen");
+    console.log("  2. Add viagen() to your vite.config.ts plugins");
+    console.log("  3. Set ANTHROPIC_API_KEY in .env");
+    console.log("  4. npm run dev");
+    console.log("");
+    console.log("Environment variables (.env):");
+    console.log("  ANTHROPIC_API_KEY   Required. Your Anthropic API key.");
+    console.log("  GITHUB_TOKEN        Optional. Enables git commit+push from sandbox.");
+    console.log("  VIAGEN_AUTH_TOKEN   Optional. Protects all endpoints with token auth.");
+    console.log("  VERCEL_TOKEN        Required for sandbox. Vercel access token.");
+    console.log("  VERCEL_TEAM_ID      Required for sandbox. From .vercel/project.json (orgId).");
+    console.log("  VERCEL_PROJECT_ID   Required for sandbox. From .vercel/project.json (projectId).");
+    console.log("");
+    console.log("Docs: http://localhost:5173/via/docs (when dev server is running)");
   }
 }
 
