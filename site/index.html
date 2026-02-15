@@ -128,14 +128,17 @@
     </div>
 
     <section>
-      <h2>Setup</h2>
+      <h2>Add viagen to your app</h2>
       <pre><code>// vite.config.ts
 import { defineConfig } from 'vite'
 import { viagen } from 'viagen'
 
 export default defineConfig({
   plugins: [viagen()],
-})</code></pre>
+})
+
+// Add ANTHROPIC_API_KEY to .env, then:
+// npm run dev</code></pre>
     </section>
 
     <section>
@@ -162,25 +165,57 @@ export default defineConfig({
           <p>Claude can read, write, edit files, run commands, and search your codebase.</p>
         </div>
         <div class="feature">
-          <h3>Streaming SSE</h3>
-          <p>Real-time streamed responses. Watch Claude think and work through your codebase.</p>
+          <h3>Git integration</h3>
+          <p>Sandbox clones your repo with push access. Claude can commit and push — hit Publish in the chat UI.</p>
         </div>
       </div>
     </section>
 
     <section>
+      <h2>CLI</h2>
+      <pre><code># See all commands and env vars
+npx viagen help
+
+# Deploy to a remote Vercel Sandbox
+npx viagen sandbox
+
+# Stop a running sandbox
+npx viagen sandbox stop &lt;sandboxId&gt;</code></pre>
+    </section>
+
+    <section>
       <h2>Sandbox</h2>
       <p style="font-size:13px;color:#a1a1aa;line-height:1.6;margin-bottom:12px;">Deploy your dev server to a remote Vercel Sandbox — an isolated microVM with full tool access and token-based auth on every endpoint.</p>
-      <pre><code># Prerequisites: ANTHROPIC_API_KEY in .env
-# + Vercel auth (pick one):
+      <pre><code># 1. Set up Vercel auth (pick one):
 vercel link && vercel env pull
 # or set VERCEL_TOKEN, VERCEL_TEAM_ID, VERCEL_PROJECT_ID
 
-# Deploy
-npx viagen sandbox
+# 2. Optional: enable git push from sandbox
+# Set GITHUB_TOKEN in .env (or use `gh auth token`)
 
-# Stop
-npx viagen sandbox stop &lt;sandboxId&gt;</code></pre>
+# 3. Deploy
+npx viagen sandbox
+# Detects git repo, prompts for mode if dirty tree,
+# clones into sandbox with push access</code></pre>
+    </section>
+
+    <section>
+      <h2>Git integration</h2>
+      <p style="font-size:13px;color:#a1a1aa;line-height:1.6;margin-bottom:12px;">When a GITHUB_TOKEN is set, the sandbox clones your repo instead of uploading files. Claude gets full git history and can commit and push changes back to your remote.</p>
+      <pre><code># Add to .env (easiest: use your gh CLI token)
+GITHUB_TOKEN=$(gh auth token)
+
+# The CLI auto-detects from your local repo:
+#   - Remote URL (SSH remotes converted to HTTPS)
+#   - Current branch
+#   - Git user name and email
+
+# If you have uncommitted changes, you'll be prompted:
+#   1) Clone from remote (clean)
+#   2) Upload local files (no git)
+#   3) Clone + overlay your local changes (default)
+
+# In the chat UI, hit "Publish" to commit + push</code></pre>
     </section>
 
     <section>
