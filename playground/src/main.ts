@@ -17,7 +17,7 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
         <img src="${claudeLogo}" class="h-24 p-6 transition-[filter] duration-300 hover:drop-shadow-[0_0_2em_#E07B53aa]" alt="Claude logo" />
       </a>
     </div>
-    <h1 class="text-5xl font-bold">Vite + TypeScript + Claude</h1>
+    <h1 class="text-3xl sm:text-5xl font-bold whitespace-nowrap">Vite + TypeScript + Claude</h1>
     <div class="p-8">
       <button id="counter" type="button" class="rounded-lg border border-transparent bg-zinc-800 px-5 py-2.5 font-medium cursor-pointer transition-colors hover:border-indigo-400"></button>
     </div>
@@ -37,7 +37,7 @@ fetch("/via/health")
 
     const el = document.createElement("div");
     el.className =
-      "mt-6 w-full max-w-md rounded-xl border border-zinc-700 bg-zinc-900 p-6 text-left";
+      "mt-6 w-full rounded-xl border border-zinc-700 bg-zinc-900 p-6 text-left";
 
     if (data.configured) {
       el.innerHTML = `
@@ -46,7 +46,7 @@ fetch("/via/health")
             <span class="inline-block h-2.5 w-2.5 rounded-full bg-green-500"></span>
             <span class="font-mono text-sm text-zinc-300">viagen: <strong class="text-green-400">${data.status}</strong></span>
           </div>
-          <button id="launch-via" class="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white cursor-pointer transition-colors hover:bg-indigo-500">
+          <button id="launch-via" class="rounded-lg bg-zinc-800 border border-zinc-600 px-4 py-1.5 text-sm font-medium text-zinc-200 cursor-pointer transition-colors hover:bg-zinc-700 hover:border-zinc-500">
             Launch
           </button>
         </div>

@@ -69,9 +69,9 @@ export const VIAGEN_UI_HTML = `<!DOCTYPE html>
       display: block;
       margin-bottom: 2px;
     }
-    .msg-user .label { color: #818cf8; }
+    .msg-user .label { color: #a1a1aa; }
     .msg-user .text { color: #d4d4d8; }
-    .msg-assistant .label { color: #34d399; }
+    .msg-assistant .label { color: #d4d4d8; }
     .msg-assistant .text {
       color: #d4d4d8;
       white-space: pre-wrap;
@@ -84,7 +84,8 @@ export const VIAGEN_UI_HTML = `<!DOCTYPE html>
       border: 1px solid #27272a;
       border-radius: 5px;
       padding: 6px 10px;
-      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
     .msg-error {
       font-size: 12px;
@@ -113,22 +114,22 @@ export const VIAGEN_UI_HTML = `<!DOCTYPE html>
       outline: none;
       transition: border-color 0.15s;
     }
-    .input-area input:focus { border-color: #6366f1; }
+    .input-area input:focus { border-color: #71717a; }
     .input-area input::placeholder { color: #52525b; }
     .input-area input:disabled { opacity: 0.5; }
     .send-btn {
       padding: 8px 16px;
-      background: #4f46e5;
-      color: white;
-      border: none;
+      background: #3f3f46;
+      color: #e4e4e7;
+      border: 1px solid #52525b;
       border-radius: 6px;
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
       font-family: inherit;
-      transition: background 0.15s;
+      transition: background 0.15s, border-color 0.15s;
     }
-    .send-btn:hover { background: #4338ca; }
+    .send-btn:hover { background: #52525b; border-color: #71717a; }
     .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
@@ -153,6 +154,8 @@ export const VIAGEN_UI_HTML = `<!DOCTYPE html>
     var chatLog = []; // Array of { type: 'user'|'text'|'tool'|'error', content: string }
     var unloading = false;
     window.addEventListener('beforeunload', function() { unloading = true; });
+    window.addEventListener('pagehide', function() { unloading = true; });
+    try { window.parent.addEventListener('beforeunload', function() { unloading = true; }); } catch(e) {}
 
     function saveHistory() {
       try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(chatLog)); } catch(e) {}

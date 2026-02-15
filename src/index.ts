@@ -113,9 +113,9 @@ const VIAGEN_CLIENT_SCRIPT = /* js */ `
       var btn = document.createElement('button');
       btn.id = 'viagen-fix-btn';
       btn.textContent = 'Fix This Error';
-      btn.style.cssText = 'display:block;width:100%;margin-top:12px;padding:12px 20px;background:#4f46e5;color:white;border:2px solid #6366f1;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:system-ui,sans-serif;transition:background 0.15s;';
-      btn.onmouseenter = function() { btn.style.background = '#4338ca'; };
-      btn.onmouseleave = function() { btn.style.background = '#4f46e5'; };
+      btn.style.cssText = 'display:block;width:100%;margin-top:12px;padding:12px 20px;background:#3f3f46;color:#e4e4e7;border:1px solid #52525b;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:system-ui,sans-serif;transition:background 0.15s;';
+      btn.onmouseenter = function() { btn.style.background = '#52525b'; };
+      btn.onmouseleave = function() { btn.style.background = '#3f3f46'; };
       btn.addEventListener('click', function() { fixError(btn); });
       target.appendChild(btn);
     }, 50);
@@ -166,16 +166,16 @@ const VIAGEN_CLIENT_SCRIPT = /* js */ `
   toggle.id = 'viagen-toggle';
   toggle.textContent = 'via';
   toggle.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99998;padding:8px 14px;background:#18181b;color:#a1a1aa;border:1px solid #3f3f46;border-radius:20px;font-size:12px;font-weight:600;font-family:ui-monospace,monospace;cursor:pointer;letter-spacing:0.05em;transition:border-color 0.15s,color 0.15s,background 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
-  toggle.onmouseenter = function() { toggle.style.borderColor = '#6366f1'; toggle.style.color = '#e4e4e7'; };
+  toggle.onmouseenter = function() { toggle.style.borderColor = '#71717a'; toggle.style.color = '#e4e4e7'; };
   toggle.onmouseleave = function() { if (panel.style.display === 'none') { toggle.style.borderColor = '#3f3f46'; toggle.style.color = '#a1a1aa'; } };
 
   function setPanelOpen(open) {
     panel.style.display = open ? 'block' : 'none';
     toggle.textContent = open ? 'x' : 'via';
     toggle.style.right = open ? '436px' : '16px';
-    toggle.style.borderColor = open ? '#6366f1' : '#3f3f46';
+    toggle.style.borderColor = open ? '#71717a' : '#3f3f46';
     toggle.style.color = open ? '#e4e4e7' : '#a1a1aa';
-    toggle.style.background = open ? '#4f46e5' : '#18181b';
+    toggle.style.background = open ? '#3f3f46' : '#18181b';
     try { sessionStorage.setItem(PANEL_KEY, open ? '1' : ''); } catch(e) {}
   }
 
