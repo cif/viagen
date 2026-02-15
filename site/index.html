@@ -188,6 +188,20 @@ npx viagen sandbox stop &lt;sandboxId&gt;</code></pre>
     </section>
 
     <section>
+      <h2>Setup</h2>
+      <p style="font-size:13px;color:#a1a1aa;line-height:1.6;margin-bottom:12px;">The <code style="font-family:ui-monospace,monospace;color:#d4d4d8;">npx viagen setup</code> command walks you through configuring your environment. You'll need:</p>
+      <ul style="font-size:13px;color:#a1a1aa;line-height:1.8;margin-bottom:12px;padding-left:20px;">
+        <li>Claude account — get your API key from <a href="https://console.anthropic.com">console.anthropic.com</a></li>
+        <li>Vercel account — for deploying sandboxes (free tier works)</li>
+        <li>Git account — GitHub token for git integration (optional)</li>
+      </ul>
+      <div class="install">
+        <code>npx viagen setup</code>
+        <button onclick="navigator.clipboard.writeText('npx viagen setup').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})">Copy</button>
+      </div>
+    </section>
+
+    <section>
       <h2>Sandbox</h2>
       <p style="font-size:13px;color:#a1a1aa;line-height:1.6;margin-bottom:12px;">Deploy your dev server to a remote Vercel Sandbox — an isolated microVM with full tool access and token-based auth on every endpoint.</p>
       <pre><code># 1. Set up Vercel auth (pick one):
