@@ -18,8 +18,8 @@
   ],
   "scripts": {
     "build": "tsup",
-    "dev": "vite --config playground/vite.config.ts playground",
-    "preview": "vite preview --config playground/vite.config.ts playground",
+    "dev": "vite --config site/vite.config.ts site",
+    "preview": "vite preview --config site/vite.config.ts site",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
