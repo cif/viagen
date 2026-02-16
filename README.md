@@ -11,7 +11,7 @@ A Vite plugin and CLI tool that enables you to use Claude Code in a sandbox — 
 ## Step 1 — Add viagen to your app
 
 ```bash
-npm install viagen
+npm install --save-dev viagen
 ```
 
 ```ts
@@ -72,7 +72,9 @@ The default system prompt:
 You are embedded in a Vite dev server as the "viagen" plugin. Your job is to
 help build and modify the app. Files you edit will trigger Vite HMR
 automatically. You can read .viagen/server.log to check recent Vite dev server
-output (compile errors, HMR updates, warnings). Be concise.
+output (compile errors, HMR updates, warnings). When running in a sandbox with
+git, the gh CLI is available and authenticated — you can create pull requests,
+comment on issues, and manage releases. Be concise.
 ```
 
 Recent build errors are automatically appended to give Claude context about what went wrong. To customize the prompt, you can replace it entirely or extend the default:

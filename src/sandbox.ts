@@ -131,8 +131,10 @@ export async function deploySandbox(
         opts.git.userEmail,
       ]);
 
-      // Ensure we're on the branch (not detached HEAD)
-      await sandbox.runCommand("git", ["checkout", opts.git.branch]);
+      // Ensure we're on the branch (not detached HEAD).
+      // Vercel clones at a specific commit hash, so the local branch doesn't
+      // exist yet — use -B to create it at the current HEAD.
+      await sandbox.runCommand("git", ["checkout", "-B", opts.git.branch]);
 
       // Configure credential helper so Claude can push
       // Use global config + home dir so it works regardless of cwd
@@ -145,6 +147,12 @@ export async function deploySandbox(
         "--global",
         "credential.helper",
         "store",
+      ]);
+
+      // Install gh CLI for pull requests and issue management
+      await sandbox.runCommand("bash", [
+        "-c",
+        "apt-get update -qq && apt-get install -y -qq gh > /dev/null 2>&1 || true",
       ]);
 
       // Overlay dirty files if provided
