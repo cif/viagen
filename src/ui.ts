@@ -230,7 +230,9 @@ export function buildUiHtml(): string {
   <div class="header">
     <h1><span class="status-dot" id="status-dot"></span> viagen <span class="session-timer" id="session-timer"></span></h1>
     <div style="display:flex;gap:4px;">
-      <button class="btn" id="sound-btn" title="Toggle completion sound">Sound</button>
+      <button class="btn" id="sound-btn" title="Toggle completion sound" style="display:flex;align-items:center;padding:5px 7px;">
+        <svg id="sound-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+      </button>
       <button class="btn" id="publish-btn" style="display:none">Publish</button>
       <button class="btn" id="reset-btn">Reset</button>
     </div>
@@ -261,30 +263,35 @@ export function buildUiHtml(): string {
     var activityTimer = null;
     var soundEnabled = false;
 
+    var soundIcon = document.getElementById('sound-icon');
+    var speakerOn = '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>';
+    var speakerOff = '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>';
+
+    function updateSoundIcon() {
+      soundIcon.innerHTML = soundEnabled ? speakerOn : speakerOff;
+      soundBtn.classList.toggle('active', soundEnabled);
+    }
+
     // Load sound preference
     try { soundEnabled = localStorage.getItem(SOUND_KEY) === '1'; } catch(e) {}
-    if (soundEnabled) soundBtn.classList.add('active');
+    updateSoundIcon();
 
     soundBtn.addEventListener('click', function() {
       soundEnabled = !soundEnabled;
-      soundBtn.classList.toggle('active', soundEnabled);
       try { localStorage.setItem(SOUND_KEY, soundEnabled ? '1' : '0'); } catch(e) {}
+      updateSoundIcon();
+      // Request notification permission on first enable
+      if (soundEnabled && 'Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
     });
 
     function playDoneSound() {
       if (!soundEnabled) return;
       try {
-        var ctx = new (window.AudioContext || window.webkitAudioContext)();
-        var osc = ctx.createOscillator();
-        var gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.setValueAtTime(880, ctx.currentTime);
-        osc.frequency.setValueAtTime(1047, ctx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.15, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.3);
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('viagen', { body: 'Claude is done', silent: false });
+        }
       } catch(e) {}
     }
 
