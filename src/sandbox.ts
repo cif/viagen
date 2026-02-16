@@ -31,6 +31,12 @@ interface DeploySandboxOptions {
   git?: GitInfo;
   /** Dirty files to overlay on top of a git clone. */
   overlayFiles?: { path: string; content: Buffer }[];
+  /** Vercel credentials for preview deploys from the sandbox. */
+  vercel?: {
+    token: string;
+    teamId: string;
+    projectId: string;
+  };
   /** Sandbox timeout in minutes (default: 30, max depends on Vercel plan). */
   timeoutMinutes?: number;
 }
@@ -155,6 +161,16 @@ export async function deploySandbox(
         "apt-get update -qq && apt-get install -y -qq gh > /dev/null 2>&1 || true",
       ]);
 
+      // Install vercel CLI for preview deploys
+      if (opts.vercel) {
+        await sandbox.runCommand("npm", [
+          "install",
+          "-g",
+          "vercel",
+          "--silent",
+        ]);
+      }
+
       // Overlay dirty files if provided
       if (opts.overlayFiles && opts.overlayFiles.length > 0) {
         await sandbox.writeFiles(opts.overlayFiles);
@@ -178,6 +194,11 @@ export async function deploySandbox(
     }
     if (opts.git) {
       envLines.push(`GITHUB_TOKEN=${opts.git.token}`);
+    }
+    if (opts.vercel) {
+      envLines.push(`VERCEL_TOKEN=${opts.vercel.token}`);
+      envLines.push(`VERCEL_ORG_ID=${opts.vercel.teamId}`);
+      envLines.push(`VERCEL_PROJECT_ID=${opts.vercel.projectId}`);
     }
     await sandbox.writeFiles([
       {

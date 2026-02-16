@@ -527,6 +527,14 @@ async function sandbox(args: string[]) {
       : undefined,
     git: deployGit,
     overlayFiles,
+    vercel:
+      env["VERCEL_TOKEN"] && env["VERCEL_TEAM_ID"] && env["VERCEL_PROJECT_ID"]
+        ? {
+            token: env["VERCEL_TOKEN"],
+            teamId: env["VERCEL_TEAM_ID"],
+            projectId: env["VERCEL_PROJECT_ID"],
+          }
+        : undefined,
     timeoutMinutes,
   });
 
