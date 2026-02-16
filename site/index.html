@@ -288,7 +288,7 @@
                 /ˈviː.ə.dʒən/ <span>n.</span> vite + agent; also: travel <span>(Portuguese)</span>
             </p>
             <p class="tagline">
-                A Vite plugin and cli tool that enables you to use Claude Code
+                A dev server plugin and cli tool that enables you to use Claude Code
                 in a sandbox — instantly.
             </p>
 
@@ -335,6 +335,28 @@ import { viagen } from 'viagen'
 export default defineConfig({
   plugins: [viagen()],
 })</code></pre>
+                </div>
+                <p style="font-size: 15px; color: var(--text-muted); line-height: 1.8; margin-top: 32px; margin-bottom: 16px">
+                    Or with webpack:
+                </p>
+                <div class="codeblock">
+                    <button
+                        onclick="navigator.clipboard.writeText(`const { setupViagen } = require('viagen/webpack')\n\nmodule.exports = {\n  devServer: {\n    setupMiddlewares: (middlewares, devServer) => {\n      setupViagen(devServer)\n      return middlewares\n    }\n  }\n}`).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})"
+                    >
+                        Copy
+                    </button>
+                    <!-- prettier-ignore -->
+                    <pre><code>// webpack.config.js
+const { setupViagen } = require('viagen/webpack')
+
+module.exports = {
+  devServer: {
+    setupMiddlewares: (middlewares, devServer) => {
+      setupViagen(devServer)
+      return middlewares
+    }
+  }
+}</code></pre>
                 </div>
             </section>
 

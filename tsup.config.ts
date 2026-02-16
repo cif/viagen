@@ -6,7 +6,11 @@ export default defineConfig([
     format: ['esm'],
     dts: true,
     clean: true,
-
+  },
+  {
+    entry: ['src/webpack.ts'],
+    format: ['esm', 'cjs'],
+    dts: true,
   },
   {
     entry: ['src/cli.ts'],

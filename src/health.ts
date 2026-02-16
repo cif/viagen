@@ -1,4 +1,4 @@
-import type { ViteDevServer } from "vite";
+import type Connect from "connect";
 
 export interface ViteError {
   message: string;
@@ -9,16 +9,16 @@ export interface ViteError {
 }
 
 export function registerHealthRoutes(
-  server: ViteDevServer,
+  app: Connect.Server,
   env: Record<string, string>,
   errorRef: { get(): ViteError | null },
 ) {
-  server.middlewares.use("/via/error", (_req, res) => {
+  app.use("/via/error", (_req, res) => {
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ error: errorRef.get() }));
   });
 
-  server.middlewares.use("/via/health", (_req, res) => {
+  app.use("/via/health", (_req, res) => {
     const configured =
       !!env["ANTHROPIC_API_KEY"] || !!env["CLAUDE_ACCESS_TOKEN"];
     const git = !!env["GITHUB_TOKEN"];

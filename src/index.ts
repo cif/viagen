@@ -154,12 +154,12 @@ export function viagen(options?: ViagenOptions): Plugin {
       });
 
       // Health + error routes
-      registerHealthRoutes(server, env, {
+      registerHealthRoutes(server.middlewares, env, {
         get: () => lastError,
       });
 
       // Chat routes
-      registerChatRoutes(server, {
+      registerChatRoutes(server.middlewares, {
         env,
         projectRoot,
         logBuffer,

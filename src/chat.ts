@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createRequire } from "node:module";
 import type { IncomingMessage } from "node:http";
-import type { ViteDevServer } from "vite";
+import type Connect from "connect";
 import type { LogBuffer } from "./logger";
 import { refreshAccessToken } from "./oauth";
 
@@ -25,7 +25,7 @@ export function findClaudeBin(): string {
 }
 
 export function registerChatRoutes(
-  server: ViteDevServer,
+  app: Connect.Server,
   opts: {
     env: Record<string, string>;
     projectRoot: string;
@@ -37,13 +37,13 @@ export function registerChatRoutes(
 ) {
   let sessionId: string | undefined;
 
-  server.middlewares.use("/via/chat/reset", (_req, res) => {
+  app.use("/via/chat/reset", (_req, res) => {
     sessionId = undefined;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ status: "ok" }));
   });
 
-  server.middlewares.use("/via/chat", async (req, res) => {
+  app.use("/via/chat", async (req, res) => {
     if (req.method !== "POST") {
       res.statusCode = 405;
       res.end(JSON.stringify({ error: "Method not allowed" }));

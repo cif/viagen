@@ -1,6 +1,10 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Logger } from "vite";
+export interface WrappableLogger {
+  info(msg: string, options?: unknown): void;
+  warn(msg: string, options?: unknown): void;
+  error(msg: string, options?: unknown): void;
+}
 
 export interface LogEntry {
   level: "info" | "warn" | "error";
@@ -47,7 +51,7 @@ export class LogBuffer {
   }
 }
 
-export function wrapLogger(logger: Logger, buffer: LogBuffer): void {
+export function wrapLogger(logger: WrappableLogger, buffer: LogBuffer): void {
   const origInfo = logger.info.bind(logger);
   const origWarn = logger.warn.bind(logger);
   const origError = logger.error.bind(logger);

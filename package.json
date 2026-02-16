@@ -1,7 +1,7 @@
 {
   "name": "viagen",
   "version": "0.0.7",
-  "description": "Vite dev server plugin that exposes endpoints for chatting with Claude Code SDK",
+  "description": "Dev server plugin (Vite + webpack) that exposes endpoints for chatting with Claude Code SDK",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -9,6 +9,11 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./webpack": {
+      "types": "./dist/webpack.d.ts",
+      "import": "./dist/webpack.js",
+      "require": "./dist/webpack.cjs"
     }
   },
   "bin": {
@@ -26,7 +31,14 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "vite": ">=4"
+    "vite": ">=4",
+    "webpack": ">=5",
+    "webpack-dev-server": ">=4"
+  },
+  "peerDependenciesMeta": {
+    "vite": { "optional": true },
+    "webpack": { "optional": true },
+    "webpack-dev-server": { "optional": true }
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.18",

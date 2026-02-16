@@ -1,6 +1,6 @@
 # viagen
 
-A Vite plugin and CLI tool that enables you to use Claude Code in a sandbox — instantly.
+A dev server plugin (Vite + webpack) and CLI tool that enables you to use Claude Code in a sandbox — instantly.
 
 ## Prerequisites
 
@@ -14,6 +14,8 @@ A Vite plugin and CLI tool that enables you to use Claude Code in a sandbox — 
 npm install --save-dev viagen
 ```
 
+### Vite
+
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite'
@@ -22,6 +24,22 @@ import { viagen } from 'viagen'
 export default defineConfig({
   plugins: [viagen()],
 })
+```
+
+### webpack
+
+```js
+// webpack.config.js
+const { setupViagen } = require('viagen/webpack')
+
+module.exports = {
+  devServer: {
+    setupMiddlewares: (middlewares, devServer) => {
+      setupViagen(devServer)
+      return middlewares
+    }
+  }
+}
 ```
 
 ## Step 2 — Setup
@@ -89,6 +107,18 @@ viagen({
 
   // Or extend the default
   systemPrompt: DEFAULT_SYSTEM_PROMPT + '\nAlways use Tailwind for styling.',
+})
+```
+
+## webpack Options
+
+```js
+setupViagen(devServer, {
+  position: 'bottom-right',  // toggle button position
+  model: 'sonnet',           // claude model
+  panelWidth: 420,           // chat panel width in px
+  ui: true,                  // inject chat panel into pages
+  systemPrompt: '...',       // custom system prompt
 })
 ```
 

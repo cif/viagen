@@ -1,18 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createTestServer } from "./test-server";
 import { registerHealthRoutes, type ViteError } from "./health";
-import type { ViteDevServer } from "vite";
 
 describe("health routes", () => {
   let lastError: ViteError | null = null;
 
   const server = createTestServer((app) => {
-    // The register function expects a ViteDevServer — we fake it
-    // with our Connect app since that's all it touches.
-    const fakeServer = { middlewares: app } as unknown as ViteDevServer;
-
     registerHealthRoutes(
-      fakeServer,
+      app,
       { ANTHROPIC_API_KEY: "sk-test-key" },
       { get: () => lastError },
     );
@@ -58,8 +53,7 @@ describe("health routes", () => {
 
 describe("health routes — missing API key", () => {
   const server = createTestServer((app) => {
-    const fakeServer = { middlewares: app } as unknown as ViteDevServer;
-    registerHealthRoutes(fakeServer, {}, { get: () => null });
+    registerHealthRoutes(app, {}, { get: () => null });
   });
 
   beforeAll(() => server.start());
