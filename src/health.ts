@@ -23,13 +23,29 @@ export function registerHealthRoutes(
       !!env["ANTHROPIC_API_KEY"] || !!env["CLAUDE_ACCESS_TOKEN"];
     const git = !!env["GITHUB_TOKEN"];
 
+    // Session timing (sandbox only)
+    const sessionStart = env["VIAGEN_SESSION_START"]
+      ? parseInt(env["VIAGEN_SESSION_START"], 10)
+      : null;
+    const sessionTimeout = env["VIAGEN_SESSION_TIMEOUT"]
+      ? parseInt(env["VIAGEN_SESSION_TIMEOUT"], 10)
+      : null;
+    const session =
+      sessionStart && sessionTimeout
+        ? {
+            startedAt: sessionStart,
+            expiresAt: sessionStart + sessionTimeout,
+            timeoutSeconds: sessionTimeout,
+          }
+        : null;
+
     res.setHeader("Content-Type", "application/json");
 
     if (configured) {
-      res.end(JSON.stringify({ status: "ok", configured: true, git }));
+      res.end(JSON.stringify({ status: "ok", configured: true, git, session }));
     } else {
       res.end(
-        JSON.stringify({ status: "error", configured: false, git }),
+        JSON.stringify({ status: "error", configured: false, git, session }),
       );
     }
   });

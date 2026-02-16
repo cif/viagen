@@ -174,6 +174,16 @@ export function registerChatRoutes(
             }
           }
 
+          if (msg.type === "tool_result" && msg.content) {
+            for (const block of msg.content) {
+              if (block.type === "text" && block.text) {
+                res.write(
+                  `data: ${JSON.stringify({ type: "tool_result", text: block.text })}\n\n`,
+                );
+              }
+            }
+          }
+
           if (msg.type === "result") {
             if (msg.result) {
               res.write(

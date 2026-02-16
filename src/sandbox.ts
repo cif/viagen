@@ -183,8 +183,12 @@ export async function deploySandbox(
       }
     }
 
-    // Write .env with secrets
-    const envLines = [`VIAGEN_AUTH_TOKEN=${token}`];
+    // Write .env with secrets + session timing
+    const envLines = [
+      `VIAGEN_AUTH_TOKEN=${token}`,
+      `VIAGEN_SESSION_START=${Math.floor(Date.now() / 1000)}`,
+      `VIAGEN_SESSION_TIMEOUT=${(opts.timeoutMinutes ?? 30) * 60}`,
+    ];
     if (opts.apiKey) {
       envLines.push(`ANTHROPIC_API_KEY=${opts.apiKey}`);
     } else if (opts.oauth) {
