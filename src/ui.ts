@@ -136,7 +136,53 @@ export function buildUiHtml(): string {
     .msg-assistant .label { color: #d4d4d8; }
     .msg-assistant .text {
       color: #d4d4d8;
-      white-space: pre-wrap;
+    }
+    .msg-assistant .text a {
+      color: #60a5fa;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: #3b82f640;
+    }
+    .msg-assistant .text a:hover { text-decoration-color: #60a5fa; }
+    .msg-assistant .text strong { color: #e4e4e7; }
+    .msg-assistant .text em { font-style: italic; }
+    .msg-assistant .text .md-code {
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      background: #27272a;
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: #d4d4d8;
+    }
+    .msg-assistant .text .md-pre {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 5px;
+      padding: 8px 10px;
+      margin: 6px 0;
+      overflow-x: auto;
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      color: #d4d4d8;
+    }
+    .msg-assistant .text .md-li {
+      display: block;
+      padding-left: 14px;
+      text-indent: -14px;
+      line-height: 1.5;
+    }
+    .msg-assistant .text .md-li:first-child,
+    .msg-assistant .text br + .md-li { margin-top: 4px; }
+    .msg-assistant .text .md-li:last-child { margin-bottom: 4px; }
+    .msg-assistant .text .md-li::before {
+      content: '\\2022\\00a0\\00a0';
+      color: #52525b;
+    }
+    .msg-assistant .text .md-h {
+      display: block;
+      color: #e4e4e7;
+      margin-top: 4px;
     }
     .msg-tool {
       font-family: ui-monospace, monospace;
@@ -368,6 +414,75 @@ export function buildUiHtml(): string {
       return div.innerHTML;
     }
 
+    function renderInline(text) {
+      // Split by inline code to protect it from further processing
+      var parts = text.split(/(\`[^\`]+\`)/g);
+      var out = '';
+      for (var i = 0; i < parts.length; i++) {
+        var p = parts[i];
+        if (p.charAt(0) === '\`' && p.charAt(p.length - 1) === '\`') {
+          out += '<span class="md-code">' + escapeHtml(p.slice(1, -1)) + '</span>';
+        } else {
+          var s = escapeHtml(p);
+          // Bold
+          s = s.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');
+          // Italic (single * not preceded/followed by *)
+          s = s.replace(/(?:^|[^*])\\*([^*]+)\\*(?:[^*]|$)/g, function(m, g) { return m.replace('*' + g + '*', '<em>' + g + '</em>'); });
+          // Links [text](url)
+          s = s.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+          // Bare URLs
+          s = s.replace(/(^|\\s)(https?:\\/\\/[^\\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+          out += s;
+        }
+      }
+      return out;
+    }
+
+    function renderMarkdown(text) {
+      // Split by fenced code blocks
+      var parts = text.split(/(^\`\`\`[\\s\\S]*?^\`\`\`)/gm);
+      // Fallback: if no code blocks matched, try non-multiline split
+      if (parts.length === 1) {
+        parts = text.split(/(\`\`\`[\\w]*\\n[\\s\\S]*?\\n\`\`\`)/g);
+      }
+      var html = '';
+      for (var i = 0; i < parts.length; i++) {
+        var p = parts[i];
+        if (p.indexOf('\`\`\`') === 0) {
+          // Code block — strip fence and optional language tag
+          var code = p.replace(/^\`\`\`\\w*\\n?/, '').replace(/\\n?\`\`\`$/, '');
+          html += '<pre class="md-pre">' + escapeHtml(code) + '</pre>';
+        } else {
+          // Process line by line
+          var lines = p.split('\\n');
+          var lineHtml = [];
+          for (var j = 0; j < lines.length; j++) {
+            var line = lines[j];
+            // Headers
+            if (line.match(/^### /)) { lineHtml.push('<strong class="md-h">' + renderInline(line.slice(4)) + '</strong>'); }
+            else if (line.match(/^## /)) { lineHtml.push('<strong class="md-h">' + renderInline(line.slice(3)) + '</strong>'); }
+            else if (line.match(/^# /)) { lineHtml.push('<strong class="md-h">' + renderInline(line.slice(2)) + '</strong>'); }
+            // List items (- or *)
+            else if (line.match(/^[-*] /)) { lineHtml.push('<span class="md-li">' + renderInline(line.slice(2)) + '</span>'); }
+            // Normal line
+            else { lineHtml.push(renderInline(line)); }
+          }
+          // Join lines, skipping <br> between consecutive list items
+          var joined = '';
+          for (var k = 0; k < lineHtml.length; k++) {
+            if (k > 0) {
+              var prevLi = lineHtml[k - 1].indexOf('md-li') !== -1;
+              var currLi = lineHtml[k].indexOf('md-li') !== -1;
+              if (!(prevLi && currLi)) joined += '<br>';
+            }
+            joined += lineHtml[k];
+          }
+          html += joined;
+        }
+      }
+      return html;
+    }
+
     function formatTool(name, input) {
       switch (name) {
         case 'Read': return 'Reading ' + (input.file_path || '');
@@ -393,7 +508,7 @@ export function buildUiHtml(): string {
       div.className = 'msg msg-assistant';
       div.innerHTML = '<span class="label">Claude</span><span class="text stream-text"></span>';
       messagesEl.appendChild(div);
-      div.querySelector('.stream-text').textContent = text;
+      div.querySelector('.stream-text').innerHTML = renderMarkdown(text);
     }
 
     var lastToolEl = null;
@@ -437,7 +552,8 @@ export function buildUiHtml(): string {
         messagesEl.appendChild(div);
         currentTextSpan = div.querySelector('.stream-text');
       }
-      currentTextSpan.textContent += text;
+      var fullText = chatLog[chatLog.length - 1].content;
+      currentTextSpan.innerHTML = renderMarkdown(fullText);
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
