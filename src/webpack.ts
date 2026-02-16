@@ -1,7 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { LogBuffer } from "./logger";
 import { registerHealthRoutes, type ViteError } from "./health";
 import { findClaudeBin, registerChatRoutes } from "./chat";
@@ -11,17 +10,6 @@ import { buildIframeHtml } from "./iframe";
 import { createAuthMiddleware } from "./auth";
 
 export { DEFAULT_SYSTEM_PROMPT } from "./chat";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const _dirname = typeof __dirname !== "undefined" ? __dirname : dirname(fileURLToPath(import.meta.url));
-
-let docsHtmlCache: string | undefined;
-function getDocsHtml(): string {
-  if (!docsHtmlCache) {
-    docsHtmlCache = readFileSync(join(_dirname, "..", "site", "index.html"), "utf-8");
-  }
-  return docsHtmlCache;
-}
 
 export interface WebpackViagenOptions {
   /** Claude model to use. Default: 'sonnet' */
@@ -253,14 +241,6 @@ export function setupViagen(
     (_req: IncomingMessage, res: ServerResponse) => {
       res.setHeader("Content-Type", "text/html");
       res.end(buildIframeHtml({ panelWidth: opts.panelWidth }));
-    },
-  );
-
-  app.use(
-    "/via/docs" as string,
-    (_req: IncomingMessage, res: ServerResponse) => {
-      res.setHeader("Content-Type", "text/html");
-      res.end(getDocsHtml());
     },
   );
 

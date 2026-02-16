@@ -20,7 +20,7 @@ export const DEFAULT_SYSTEM_PROMPT = `You are embedded in a Vite dev server as t
 
 export function findClaudeBin(): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const _require = typeof require !== "undefined" ? require : createRequire(import.meta.url);
+  const _require = typeof require !== "undefined" && typeof require.resolve === "function" ? require : createRequire(import.meta.url);
   const pkgPath = _require.resolve("@anthropic-ai/claude-code/package.json");
   return pkgPath.replace("package.json", "cli.js");
 }

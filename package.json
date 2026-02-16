@@ -1,6 +1,6 @@
 {
   "name": "viagen",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Dev server plugin (Vite + webpack) that exposes endpoints for chatting with Claude Code SDK",
   "type": "module",
   "main": "./dist/index.js",
@@ -20,8 +20,7 @@
     "viagen": "./dist/cli.js"
   },
   "files": [
-    "dist",
-    "site"
+    "dist"
   ],
   "scripts": {
     "build": "tsup",

@@ -601,9 +601,7 @@ function help() {
     "  VERCEL_PROJECT_ID      Vercel project ID (for sandbox).",
   );
   console.log("");
-  console.log(
-    "Docs: http://localhost:5173/via/docs (when dev server is running)",
-  );
+  console.log("Docs: https://viagen.dev");
 }
 
 // ─── main ────────────────────────────────────────────────────────

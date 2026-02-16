@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { loadEnv, type Plugin } from "vite";
 import { LogBuffer, wrapLogger } from "./logger";
 import { registerHealthRoutes, type ViteError } from "./health";
@@ -9,15 +6,6 @@ import { buildClientScript } from "./overlay";
 import { buildUiHtml } from "./ui";
 import { buildIframeHtml } from "./iframe";
 import { createAuthMiddleware } from "./auth";
-
-let docsHtmlCache: string | undefined;
-function getDocsHtml(): string {
-  if (!docsHtmlCache) {
-    const dir = dirname(fileURLToPath(import.meta.url));
-    docsHtmlCache = readFileSync(join(dir, "..", "site", "index.html"), "utf-8");
-  }
-  return docsHtmlCache;
-}
 
 export interface ViagenOptions {
   /** Toggle button placement. Default: 'bottom-right' */
@@ -146,11 +134,6 @@ export function viagen(options?: ViagenOptions): Plugin {
       server.middlewares.use("/via/iframe", (_req, res) => {
         res.setHeader("Content-Type", "text/html");
         res.end(buildIframeHtml({ panelWidth: opts.panelWidth }));
-      });
-
-      server.middlewares.use("/via/docs", (_req, res) => {
-        res.setHeader("Content-Type", "text/html");
-        res.end(getDocsHtml());
       });
 
       // Health + error routes

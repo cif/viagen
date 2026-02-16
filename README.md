@@ -1,6 +1,6 @@
 # viagen
 
-A dev server plugin (Vite + webpack) and CLI tool that enables you to use Claude Code in a sandbox — instantly.
+A dev server plugin (Vite, webpack, Next.js) and CLI tool that enables you to use Claude Code in a sandbox — instantly.
 
 ## Prerequisites
 
@@ -38,6 +38,50 @@ module.exports = {
       setupViagen(devServer)
       return middlewares
     }
+  }
+}
+```
+
+### Next.js
+
+Next.js uses its own dev server, so viagen runs via a custom server file.
+
+```bash
+npm install --save-dev viagen connect
+```
+
+```ts
+// server.ts
+import http from 'node:http'
+import next from 'next'
+import connect from 'connect'
+import { setupViagen } from 'viagen/webpack'
+
+const dev = process.env.NODE_ENV !== 'production'
+const app = next({ dev, hostname: 'localhost', port: 3000 })
+const handle = app.getRequestHandler()
+
+app.prepare().then(() => {
+  const server = connect()
+
+  setupViagen({
+    app: server,
+    compiler: { hooks: { done: { tap: () => {} } } },
+  })
+
+  server.use((req, res) => handle(req, res))
+  http.createServer(server).listen(3000, () => {
+    console.log('> Ready on http://localhost:3000')
+  })
+})
+```
+
+Then update your dev script:
+
+```json
+{
+  "scripts": {
+    "dev": "npx tsx server.ts"
   }
 }
 ```

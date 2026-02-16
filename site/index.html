@@ -5,9 +5,9 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta
             name="description"
-            content="Viagen is a Vite plugin that embeds Claude Code into any Vite dev server. Chat with Claude to build, edit, and fix your app in real time."
+            content="Viagen is a dev server plugin that embeds Claude Code into Vite, webpack, and Next.js. Chat with Claude to build, edit, and fix your app in real time."
         />
-        <title>viagen — Claude Code in your Vite dev server</title>
+        <title>viagen — Claude in your dev server on a sandbox</title>
         <link rel="icon" type="image/svg+xml" href="/icon.svg" />
         <style>
             :root {
@@ -20,7 +20,7 @@
                 --text-dim: #71717a;
                 --code-text: #d4d4d8;
             }
-            [data-theme='light'] {
+            [data-theme="light"] {
                 --bg: #ffffff;
                 --bg-secondary: #f4f4f5;
                 --border: #e4e4e7;
@@ -46,7 +46,9 @@
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                transition: background-color 0.2s, color 0.2s;
+                transition:
+                    background-color 0.2s,
+                    color 0.2s;
             }
             a {
                 color: var(--text-muted);
@@ -270,8 +272,23 @@
     </head>
     <body>
         <div class="container">
-            <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
-                <svg id="themeIcon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <button
+                class="theme-toggle"
+                id="themeToggle"
+                aria-label="Toggle theme"
+            >
+                <svg
+                    id="themeIcon"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
                     <circle cx="12" cy="12" r="4"></circle>
                     <path d="M12 2v2"></path>
                     <path d="M12 20v2"></path>
@@ -285,11 +302,12 @@
             </button>
             <h1>viagen</h1>
             <p class="etymology">
-                /ˈviː.ə.dʒən/ <span>n.</span> vite + agent; also: travel <span>(Portuguese)</span>
+                /ˈviː.ə.dʒən/ <span>n.</span> vite + agent; also: travel
+                <span>(Portuguese)</span>
             </p>
             <p class="tagline">
-                A dev server plugin and cli tool that enables you to use Claude Code
-                in a sandbox — instantly.
+                A dev server plugin and cli tool that enables you to use Claude
+                Code in a sandbox — instantly.
             </p>
 
             <section>
@@ -336,28 +354,24 @@ export default defineConfig({
   plugins: [viagen()],
 })</code></pre>
                 </div>
-                <p style="font-size: 15px; color: var(--text-muted); line-height: 1.8; margin-top: 32px; margin-bottom: 16px">
-                    Or with webpack:
+                <p
+                    style="
+                        font-size: 14px;
+                        color: var(--text-dim);
+                        line-height: 1.6;
+                        margin-top: 20px;
+                    "
+                >
+                    Also works with
+                    <a
+                        href="setup.html"
+                        style="
+                            text-decoration: underline;
+                            text-underline-offset: 2px;
+                        "
+                        >webpack and Next.js</a
+                    >.
                 </p>
-                <div class="codeblock">
-                    <button
-                        onclick="navigator.clipboard.writeText(`const { setupViagen } = require('viagen/webpack')\n\nmodule.exports = {\n  devServer: {\n    setupMiddlewares: (middlewares, devServer) => {\n      setupViagen(devServer)\n      return middlewares\n    }\n  }\n}`).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})"
-                    >
-                        Copy
-                    </button>
-                    <!-- prettier-ignore -->
-                    <pre><code>// webpack.config.js
-const { setupViagen } = require('viagen/webpack')
-
-module.exports = {
-  devServer: {
-    setupMiddlewares: (middlewares, devServer) => {
-      setupViagen(devServer)
-      return middlewares
-    }
-  }
-}</code></pre>
-                </div>
             </section>
 
             <section>
@@ -370,10 +384,18 @@ module.exports = {
                         Copy
                     </button>
                 </div>
-                <p style="font-size: 15px; color: var(--text-muted); line-height: 1.8">
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                    "
+                >
                     The setup wizard authenticates with Claude then uses github
                     and vercel to write your local
-                    <code style="font-size: 12px; color: var(--code-text)">.env</code>.
+                    <code style="font-size: 12px; color: var(--code-text)"
+                        >.env</code
+                    >.
                 </p>
                 <p
                     style="
@@ -402,7 +424,13 @@ module.exports = {
                         Copy
                     </button>
                 </div>
-                <p style="font-size: 15px; color: var(--text-muted); line-height: 1.8">
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                    "
+                >
                     Deploys your dev server to a remote Vercel Sandbox — an
                     isolated vm-like environment where Claude can read, write,
                     and push code.
@@ -439,7 +467,9 @@ npx viagen sandbox stop &lt;sandboxId&gt;</code></pre>
                 >
                     The default system prompt:
                 </p>
-                <pre style="margin-top: 12px"><code>You are embedded in a Vite dev server as the "viagen" plugin.
+                <pre
+                    style="margin-top: 12px"
+                ><code>You are embedded in a Vite dev server as the "viagen" plugin.
 Your job is to help build and modify the app. Files you edit
 will trigger Vite HMR automatically. You can read
 .viagen/server.log to check recent Vite dev server output
@@ -461,7 +491,9 @@ Be concise.</code></pre>
                     Claude context about what went wrong. To customize the
                     prompt, you can replace it entirely or extend the default:
                 </p>
-                <pre style="margin-top: 12px"><code>import { viagen, DEFAULT_SYSTEM_PROMPT } from 'viagen'
+                <pre
+                    style="margin-top: 12px"
+                ><code>import { viagen, DEFAULT_SYSTEM_PROMPT } from 'viagen'
 
 viagen({
   // Replace entirely
@@ -475,12 +507,20 @@ Always use Tailwind for styling.`,
 
             <section>
                 <h2>API</h2>
-                <p style="font-size: 15px; color: var(--text-muted); line-height: 1.8">
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                    "
+                >
                     Every viagen endpoint is available as an API. Build your own
                     UI, integrate with CI, or script Claude from the command
                     line.
                 </p>
-                <pre style="margin-top: 16px"><code>POST /via/chat        — send a message, streamed SSE response
+                <pre
+                    style="margin-top: 16px"
+                ><code>POST /via/chat        — send a message, streamed SSE response
 POST /via/chat/reset  — clear conversation history
 GET  /via/health      — check API key status
 GET  /via/error       — latest build error (if any)
@@ -521,39 +561,47 @@ open "http://localhost:5173/via/ui?token=$VIAGEN_AUTH_TOKEN"</code></pre>
             <div class="links">
                 <a href="https://github.com/cif/viagen">GitHub</a>
                 <a href="https://www.npmjs.com/package/viagen">npm</a>
-                <a href="https://github.com/cif/viagen/blob/main/LICENSE">MIT License</a>
+                <a href="https://github.com/cif/viagen/blob/main/LICENSE"
+                    >MIT License</a
+                >
             </div>
         </div>
         <script>
-            const themeToggle = document.getElementById('themeToggle');
-            const themeIcon = document.getElementById('themeIcon');
+            const themeToggle = document.getElementById("themeToggle");
+            const themeIcon = document.getElementById("themeIcon");
             const html = document.documentElement;
 
             const sunIcon = `<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path>`;
             const moonIcon = `<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>`;
 
             function getSystemTheme() {
-                return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+                return window.matchMedia("(prefers-color-scheme: light)")
+                    .matches
+                    ? "light"
+                    : "dark";
             }
 
             function setTheme(theme) {
-                if (theme === 'light') {
-                    html.setAttribute('data-theme', 'light');
+                if (theme === "light") {
+                    html.setAttribute("data-theme", "light");
                     themeIcon.innerHTML = moonIcon;
                 } else {
-                    html.removeAttribute('data-theme');
+                    html.removeAttribute("data-theme");
                     themeIcon.innerHTML = sunIcon;
                 }
-                sessionStorage.setItem('theme', theme);
+                sessionStorage.setItem("theme", theme);
             }
 
-            const savedTheme = sessionStorage.getItem('theme');
+            const savedTheme = sessionStorage.getItem("theme");
             const initialTheme = savedTheme || getSystemTheme();
             setTheme(initialTheme);
 
-            themeToggle.addEventListener('click', () => {
-                const currentTheme = html.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            themeToggle.addEventListener("click", () => {
+                const currentTheme =
+                    html.getAttribute("data-theme") === "light"
+                        ? "light"
+                        : "dark";
+                const newTheme = currentTheme === "light" ? "dark" : "light";
                 setTheme(newTheme);
             });
         </script>
