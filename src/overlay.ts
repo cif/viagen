@@ -2,6 +2,7 @@ export function buildClientScript(opts: {
   position: string;
   panelWidth: number;
   overlay: boolean;
+  embedMode?: boolean;
 }): string {
   const pos = opts.position;
   const pw = opts.panelWidth;
@@ -22,6 +23,7 @@ export function buildClientScript(opts: {
   return /* js */ `
 (function() {
   var OVERLAY_ENABLED = ${opts.overlay};
+  var EMBED_MODE = ${opts.embedMode ? "true" : "false"};
 
   /* ---- Error overlay: inject Fix button into shadow DOM ---- */
   if (OVERLAY_ENABLED) {
@@ -90,20 +92,26 @@ export function buildClientScript(opts: {
         (e.loc ? e.loc.file + ':' + e.loc.line : 'unknown file') +
         ':\\n\\n' + e.message +
         (e.frame ? '\\n\\nCode frame:\\n' + e.frame : '');
-      var p = document.getElementById('viagen-panel');
-      if (p && p.style.display === 'none') {
-        var t = document.getElementById('viagen-toggle');
-        if (t) t.click();
-      }
-      var f = p && p.querySelector('iframe');
-      if (f && f.contentWindow) {
-        f.contentWindow.postMessage({ type: 'viagen:send', message: prompt }, '*');
+      if (EMBED_MODE) {
+        window.parent.postMessage({ type: 'viagen:send', message: prompt }, '*');
+      } else {
+        var p = document.getElementById('viagen-panel');
+        if (p && p.style.display === 'none') {
+          var t = document.getElementById('viagen-toggle');
+          if (t) t.click();
+        }
+        var f = p && p.querySelector('iframe');
+        if (f && f.contentWindow) {
+          f.contentWindow.postMessage({ type: 'viagen:send', message: prompt }, '*');
+        }
       }
     } catch(err) {
       console.error('[viagen] Fix error failed:', err);
       win.classList.remove('viagen-fixing');
     }
   }
+
+  if (EMBED_MODE) return;
 
   /* ---- Floating toggle + iframe panel ---- */
   var PANEL_KEY = 'viagen_panel_open';

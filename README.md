@@ -102,6 +102,7 @@ POST /via/chat/reset  — clear conversation history
 GET  /via/health      — check API key status
 GET  /via/error       — latest build error (if any)
 GET  /via/ui          — standalone chat interface
+GET  /via/iframe      — split view (app + chat side by side)
 ```
 
 When `VIAGEN_AUTH_TOKEN` is set (always on in sandboxes), pass the token as a `Bearer` header or `?token=` query param.

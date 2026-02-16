@@ -230,6 +230,9 @@ export function buildUiHtml(): string {
   <div class="header">
     <h1><span class="status-dot" id="status-dot"></span> viagen <span class="session-timer" id="session-timer"></span></h1>
     <div style="display:flex;gap:4px;">
+      <button class="btn" id="popout-btn" title="Open split view" style="display:flex;align-items:center;padding:5px 7px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4"></path></svg>
+      </button>
       <button class="btn" id="sound-btn" title="Toggle completion sound" style="display:flex;align-items:center;padding:5px 7px;">
         <svg id="sound-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
       </button>
@@ -280,18 +283,24 @@ export function buildUiHtml(): string {
       soundEnabled = !soundEnabled;
       try { localStorage.setItem(SOUND_KEY, soundEnabled ? '1' : '0'); } catch(e) {}
       updateSoundIcon();
-      // Request notification permission on first enable
-      if (soundEnabled && 'Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
+      // Play a short test beep on first enable
+      if (soundEnabled) playDoneSound();
     });
 
     function playDoneSound() {
       if (!soundEnabled) return;
       try {
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('viagen', { body: 'Claude is done', silent: false });
-        }
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.setValueAtTime(1047, ctx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.3);
       } catch(e) {}
     }
 
@@ -545,11 +554,21 @@ export function buildUiHtml(): string {
       send();
     });
 
+    // Pop-out button — open split view in new tab
+    var popoutBtn = document.getElementById('popout-btn');
+    popoutBtn.addEventListener('click', function() {
+      window.open('/via/iframe', '_blank');
+    });
+
     // Accept messages from parent (e.g. "Fix This Error" button)
     window.addEventListener('message', function(ev) {
       if (ev.data && ev.data.type === 'viagen:send' && ev.data.message) {
         inputEl.value = ev.data.message;
         send();
+      }
+      // Hide pop-out button when already in iframe split view
+      if (ev.data && ev.data.type === 'viagen:context' && ev.data.iframe) {
+        popoutBtn.style.display = 'none';
       }
     });
 

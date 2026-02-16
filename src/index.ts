@@ -7,6 +7,7 @@ import { registerHealthRoutes, type ViteError } from "./health";
 import { findClaudeBin, registerChatRoutes } from "./chat";
 import { buildClientScript } from "./overlay";
 import { buildUiHtml } from "./ui";
+import { buildIframeHtml } from "./iframe";
 import { createAuthMiddleware } from "./auth";
 
 let docsHtmlCache: string | undefined;
@@ -70,8 +71,31 @@ export function viagen(options?: ViagenOptions): Plugin {
       logBuffer.init(projectRoot);
       wrapLogger(config.logger, logBuffer);
     },
-    transformIndexHtml() {
+    transformIndexHtml(_html, ctx) {
       if (!opts.ui) return [];
+
+      const url = new URL(
+        ctx.originalUrl || ctx.path,
+        "http://localhost",
+      );
+      const isEmbed = url.searchParams.has("_viagen_embed");
+
+      if (isEmbed) {
+        if (!opts.overlay) return [];
+        return [
+          {
+            tag: "script",
+            children: buildClientScript({
+              position: opts.position,
+              panelWidth: opts.panelWidth,
+              overlay: true,
+              embedMode: true,
+            }),
+            injectTo: "body" as const,
+          },
+        ];
+      }
+
       return [
         {
           tag: "script",
@@ -117,6 +141,11 @@ export function viagen(options?: ViagenOptions): Plugin {
       server.middlewares.use("/via/ui", (_req, res) => {
         res.setHeader("Content-Type", "text/html");
         res.end(buildUiHtml());
+      });
+
+      server.middlewares.use("/via/iframe", (_req, res) => {
+        res.setHeader("Content-Type", "text/html");
+        res.end(buildIframeHtml({ panelWidth: opts.panelWidth }));
       });
 
       server.middlewares.use("/via/docs", (_req, res) => {
