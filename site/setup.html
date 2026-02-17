@@ -5,9 +5,9 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta
             name="description"
-            content="Setup instructions for using viagen with webpack and Next.js."
+            content="Setup instructions for using viagen with webpack."
         />
-        <title>viagen — webpack &amp; Next.js setup</title>
+        <title>viagen — webpack setup</title>
         <link rel="icon" type="image/svg+xml" href="/icon.svg" />
         <style>
             :root {
@@ -217,7 +217,7 @@
                 </svg>
             </button>
             <h1><a href="./">viagen</a></h1>
-            <p class="subtitle">webpack &amp; Next.js setup</p>
+            <p class="subtitle">webpack setup</p>
 
             <section>
                 <h2>webpack</h2>
@@ -255,60 +255,6 @@ module.exports = {
   ui: true,                  // inject chat panel into pages
   systemPrompt: '...',       // custom system prompt
 })</code></pre>
-            </section>
-
-            <section>
-                <h2>Next.js</h2>
-                <p style="font-size: 15px; color: var(--text-muted); line-height: 1.8; margin-bottom: 16px">
-                    Next.js uses its own dev server, so viagen runs via a custom server file.
-                </p>
-                <div class="install">
-                    <code>npm install --save-dev viagen connect</code>
-                    <button
-                        onclick="navigator.clipboard.writeText('npm install --save-dev viagen connect').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})"
-                    >
-                        Copy
-                    </button>
-                </div>
-                <div class="codeblock">
-                    <button
-                        onclick="navigator.clipboard.writeText(`import http from 'node:http'\nimport next from 'next'\nimport connect from 'connect'\nimport { setupViagen } from 'viagen/webpack'\n\nconst dev = process.env.NODE_ENV !== 'production'\nconst app = next({ dev, hostname: 'localhost', port: 3000 })\nconst handle = app.getRequestHandler()\n\napp.prepare().then(() => {\n  const server = connect()\n\n  setupViagen({\n    app: server,\n    compiler: { hooks: { done: { tap: () => {} } } },\n  })\n\n  server.use((req, res) => handle(req, res))\n  http.createServer(server).listen(3000, () => {\n    console.log('> Ready on http://localhost:3000')\n  })\n})`).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})"
-                    >
-                        Copy
-                    </button>
-                    <!-- prettier-ignore -->
-                    <pre><code>// server.ts
-import http from 'node:http'
-import next from 'next'
-import connect from 'connect'
-import { setupViagen } from 'viagen/webpack'
-
-const dev = process.env.NODE_ENV !== 'production'
-const app = next({ dev, hostname: 'localhost', port: 3000 })
-const handle = app.getRequestHandler()
-
-app.prepare().then(() => {
-  const server = connect()
-
-  setupViagen({
-    app: server,
-    compiler: { hooks: { done: { tap: () => {} } } },
-  })
-
-  server.use((req, res) => handle(req, res))
-  http.createServer(server).listen(3000, () => {
-    console.log('> Ready on http://localhost:3000')
-  })
-})</code></pre>
-                </div>
-                <p style="font-size: 15px; color: var(--text-muted); line-height: 1.8; margin-top: 16px">
-                    Then update your dev script:
-                </p>
-                <pre style="margin-top: 12px"><code>{
-  "scripts": {
-    "dev": "npx tsx server.ts"
-  }
-}</code></pre>
             </section>
 
             <section>
