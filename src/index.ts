@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadEnv, type Plugin } from "vite";
@@ -76,6 +76,16 @@ export function viagen(options?: ViagenOptions): Plugin {
       claudeBin = findClaudeBin();
       logBuffer.init(projectRoot);
       wrapLogger(config.logger, logBuffer);
+
+      // Write plugin config so the CLI can read it
+      const viagenDir = join(projectRoot, ".viagen");
+      mkdirSync(viagenDir, { recursive: true });
+      writeFileSync(
+        join(viagenDir, "config.json"),
+        JSON.stringify({
+          sandboxFiles: options?.sandboxFiles ?? [],
+        }),
+      );
     },
     transformIndexHtml(_html, ctx) {
       if (!opts.ui) return [];

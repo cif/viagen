@@ -631,12 +631,12 @@ async function sandbox(args: string[]) {
     );
   }
 
-  // Read sandboxFiles from package.json
-  const pkgPath = join(cwd, "package.json");
-  if (existsSync(pkgPath)) {
+  // Read sandboxFiles from .viagen/config.json (written by the plugin)
+  const configPath = join(cwd, ".viagen", "config.json");
+  if (existsSync(configPath)) {
     try {
-      const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
-      const sandboxFiles: string[] = pkg.viagen?.sandboxFiles ?? [];
+      const config = JSON.parse(readFileSync(configPath, "utf-8"));
+      const sandboxFiles: string[] = config.sandboxFiles ?? [];
       if (sandboxFiles.length > 0) {
         const extra: { path: string; content: Buffer }[] = [];
         for (const file of sandboxFiles) {
@@ -649,11 +649,11 @@ async function sandbox(args: string[]) {
         }
         if (extra.length > 0) {
           overlayFiles = [...(overlayFiles ?? []), ...extra];
-          console.log(`  Including ${extra.length} extra file(s) from sandboxFiles config.`);
+          console.log(`  Including ${extra.length} extra file(s) from sandboxFiles.`);
         }
       }
     } catch {
-      // Ignore parse errors — package.json is optional for this
+      // Ignore if config is missing or malformed
     }
   }
 
