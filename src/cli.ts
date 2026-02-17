@@ -4,7 +4,7 @@ import { execSync } from "node:child_process";
 import { createInterface } from "node:readline";
 import { homedir } from "node:os";
 import { deploySandbox, stopSandbox, collectFiles } from "./sandbox";
-import { oauthMaxFlow, oauthConsoleFlow } from "./oauth";
+import { oauthMaxFlow, oauthConsoleFlow, refreshAccessToken } from "./oauth";
 import type { GitInfo } from "./sandbox";
 
 function loadDotenv(dir: string): Record<string, string> {
@@ -46,6 +46,20 @@ function writeEnvVars(dir: string, vars: Record<string, string>) {
     content += "\n";
   }
   content += toAdd.join("\n") + "\n";
+  writeFileSync(envPath, content);
+}
+
+function updateEnvVars(dir: string, vars: Record<string, string>) {
+  const envPath = join(dir, ".env");
+  if (!existsSync(envPath)) return;
+
+  let content = readFileSync(envPath, "utf-8");
+  for (const [key, val] of Object.entries(vars)) {
+    const re = new RegExp(`^${key}=.*$`, "m");
+    if (re.test(content)) {
+      content = content.replace(re, `${key}=${val}`);
+    }
+  }
   writeFileSync(envPath, content);
 }
 
@@ -115,6 +129,62 @@ function getGitInfo(cwd: string): LocalGitInfo | null {
     };
   } catch {
     return null;
+  }
+}
+
+function remoteBranchExists(
+  remoteUrl: string,
+  branch: string,
+  token: string,
+): boolean {
+  try {
+    const url = new URL(remoteUrl);
+    url.username = "x-access-token";
+    url.password = token;
+    const out = execSync(
+      `git ls-remote --heads ${url.toString()} refs/heads/${branch}`,
+      { encoding: "utf-8", stdio: "pipe" },
+    ).trim();
+    return out.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Extract "owner/repo" from an HTTPS remote URL. */
+function repoNwo(remoteUrl: string): string | null {
+  const m = remoteUrl.match(/github\.com[/:]([^/]+\/[^/.]+?)(?:\.git)?$/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Create a branch on the remote via `gh api`.
+ * Returns true if the branch was created (or already existed).
+ */
+function createRemoteBranch(
+  remoteUrl: string,
+  branch: string,
+  token: string,
+): boolean {
+  const nwo = repoNwo(remoteUrl);
+  if (!nwo) return false;
+
+  try {
+    // Get the SHA of the default branch HEAD
+    const sha = execSync(
+      `gh api repos/${nwo}/git/ref/heads/main --jq .object.sha`,
+      { encoding: "utf-8", stdio: "pipe", env: { ...process.env, GH_TOKEN: token } },
+    ).trim();
+
+    if (!sha) return false;
+
+    execSync(
+      `gh api repos/${nwo}/git/refs -f ref=refs/heads/${branch} -f sha=${sha}`,
+      { encoding: "utf-8", stdio: "pipe", env: { ...process.env, GH_TOKEN: token } },
+    );
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -445,6 +515,34 @@ async function sandbox(args: string[]) {
     process.exit(1);
   }
 
+  // Refresh OAuth tokens if expired (or expiring within 5 min)
+  if (hasOAuth && env["CLAUDE_REFRESH_TOKEN"]) {
+    const expires = parseInt(env["CLAUDE_TOKEN_EXPIRES"] || "0", 10);
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (nowSec > expires - 300) {
+      console.log("Refreshing Claude OAuth tokens...");
+      try {
+        const tokens = await refreshAccessToken(env["CLAUDE_REFRESH_TOKEN"]);
+        env["CLAUDE_ACCESS_TOKEN"] = tokens.access_token;
+        env["CLAUDE_REFRESH_TOKEN"] = tokens.refresh_token;
+        env["CLAUDE_TOKEN_EXPIRES"] = String(nowSec + tokens.expires_in);
+        // Persist refreshed tokens to .env
+        updateEnvVars(cwd, {
+          CLAUDE_ACCESS_TOKEN: tokens.access_token,
+          CLAUDE_REFRESH_TOKEN: tokens.refresh_token,
+          CLAUDE_TOKEN_EXPIRES: String(nowSec + tokens.expires_in),
+        });
+        console.log("  Tokens refreshed.");
+      } catch (err) {
+        console.error(
+          "Failed to refresh OAuth tokens. Run `npx viagen setup` to re-authenticate.",
+        );
+        console.error(`  ${err instanceof Error ? err.message : String(err)}`);
+        process.exit(1);
+      }
+    }
+  }
+
   const hasOidc = !!env["VERCEL_OIDC_TOKEN"];
   const hasToken =
     !!env["VERCEL_TOKEN"] &&
@@ -468,9 +566,34 @@ async function sandbox(args: string[]) {
   const branch = branchOverride || (gitInfo ? gitInfo.branch : "main");
 
   if (gitInfo && githubToken) {
+    let branchExistsOnRemote = remoteBranchExists(
+      gitInfo.remoteUrl,
+      branch,
+      githubToken,
+    );
+    if (!branchExistsOnRemote) {
+      console.log(
+        `Branch "${branch}" not found on remote — creating it...`,
+      );
+      const created = createRemoteBranch(
+        gitInfo.remoteUrl,
+        branch,
+        githubToken,
+      );
+      if (created) {
+        console.log(`  Branch "${branch}" created on remote (from main).`);
+        branchExistsOnRemote = true;
+      } else {
+        console.log(
+          `  Could not create branch on remote — will clone default branch and create locally.`,
+        );
+      }
+    }
+
     const makeGitInfo = (): GitInfo => ({
       remoteUrl: gitInfo.remoteUrl,
       branch,
+      revision: branchExistsOnRemote ? branch : undefined,
       userName: gitInfo.userName,
       userEmail: gitInfo.userEmail,
       token: githubToken,
@@ -527,6 +650,7 @@ async function sandbox(args: string[]) {
       : undefined,
     git: deployGit,
     overlayFiles,
+    envVars: dotenv,
     vercel:
       env["VERCEL_TOKEN"] && env["VERCEL_TEAM_ID"] && env["VERCEL_PROJECT_ID"]
         ? {

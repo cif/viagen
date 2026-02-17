@@ -1,7 +1,7 @@
-import { defineConfig } from 'vite'
-import { viagen } from '../src'
+import { defineConfig } from "vite";
+import { viagen } from "../src";
 
 export default defineConfig({
-  envDir: '..',
+  envDir: "..",
   plugins: [viagen()],
-})
+});

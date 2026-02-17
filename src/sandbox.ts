@@ -8,6 +8,8 @@ export interface GitInfo {
   remoteUrl: string;
   /** Branch to check out. */
   branch: string;
+  /** Revision to clone (branch/tag/sha). If omitted, clones the default branch. */
+  revision?: string;
   /** Git user name for commits. */
   userName: string;
   /** Git user email for commits. */
@@ -39,6 +41,8 @@ interface DeploySandboxOptions {
   };
   /** Sandbox timeout in minutes (default: 30, max depends on Vercel plan). */
   timeoutMinutes?: number;
+  /** User's .env variables to forward into the sandbox. */
+  envVars?: Record<string, string>;
 }
 
 interface DeploySandboxResult {
@@ -104,22 +108,43 @@ export async function deploySandbox(
   const timeoutMs = (opts.timeoutMinutes ?? 30) * 60 * 1000;
 
   // Create sandbox — with git source or bare
-  const sandbox = await Sandbox.create({
-    runtime: "node22",
-    ports: [5173],
-    timeout: timeoutMs,
-    ...(opts.git
-      ? {
-          source: {
-            type: "git" as const,
-            url: opts.git.remoteUrl,
-            username: "x-access-token",
-            password: opts.git.token,
-            revision: opts.git.branch,
-          },
-        }
-      : {}),
-  });
+  const sourceOpts = opts.git
+    ? {
+        source: {
+          type: "git" as const,
+          url: opts.git.remoteUrl,
+          username: "x-access-token",
+          password: opts.git.token,
+          ...(opts.git.revision ? { revision: opts.git.revision } : {}),
+        },
+      }
+    : {};
+
+  let sandbox: Awaited<ReturnType<typeof Sandbox.create>>;
+  try {
+    sandbox = await Sandbox.create({
+      runtime: "node22",
+      ports: [5173],
+      timeout: timeoutMs,
+      ...sourceOpts,
+    });
+  } catch (err: unknown) {
+    console.error("\nSandbox creation failed.");
+    if (opts.git) {
+      console.error(`  URL:      ${opts.git.remoteUrl}`);
+      console.error(`  Revision: ${opts.git.revision ?? "(default branch)"}`);
+      console.error(`  Branch:   ${opts.git.branch}`);
+    }
+    // Surface the Vercel API error body (APIError exposes .json and .text)
+    const apiErr = err as { message?: string; json?: unknown; text?: string };
+    if (apiErr.message) console.error(`  Message:  ${apiErr.message}`);
+    if (apiErr.json) {
+      console.error(`  Response: ${JSON.stringify(apiErr.json, null, 2)}`);
+    } else if (apiErr.text) {
+      console.error(`  Response: ${apiErr.text}`);
+    }
+    throw err;
+  }
 
   try {
     if (useGit && opts.git) {
@@ -183,27 +208,27 @@ export async function deploySandbox(
       }
     }
 
-    // Write .env with secrets + session timing
-    const envLines = [
-      `VIAGEN_AUTH_TOKEN=${token}`,
-      `VIAGEN_SESSION_START=${Math.floor(Date.now() / 1000)}`,
-      `VIAGEN_SESSION_TIMEOUT=${(opts.timeoutMinutes ?? 30) * 60}`,
-    ];
+    // Write .env — start with user's app vars, then overlay viagen secrets
+    const envMap: Record<string, string> = { ...(opts.envVars ?? {}) };
+    envMap["VIAGEN_AUTH_TOKEN"] = token;
+    envMap["VIAGEN_SESSION_START"] = String(Math.floor(Date.now() / 1000));
+    envMap["VIAGEN_SESSION_TIMEOUT"] = String((opts.timeoutMinutes ?? 30) * 60);
     if (opts.apiKey) {
-      envLines.push(`ANTHROPIC_API_KEY=${opts.apiKey}`);
+      envMap["ANTHROPIC_API_KEY"] = opts.apiKey;
     } else if (opts.oauth) {
-      envLines.push(`CLAUDE_ACCESS_TOKEN=${opts.oauth.accessToken}`);
-      envLines.push(`CLAUDE_REFRESH_TOKEN=${opts.oauth.refreshToken}`);
-      envLines.push(`CLAUDE_TOKEN_EXPIRES=${opts.oauth.tokenExpires}`);
+      envMap["CLAUDE_ACCESS_TOKEN"] = opts.oauth.accessToken;
+      envMap["CLAUDE_REFRESH_TOKEN"] = opts.oauth.refreshToken;
+      envMap["CLAUDE_TOKEN_EXPIRES"] = opts.oauth.tokenExpires;
     }
     if (opts.git) {
-      envLines.push(`GITHUB_TOKEN=${opts.git.token}`);
+      envMap["GITHUB_TOKEN"] = opts.git.token;
     }
     if (opts.vercel) {
-      envLines.push(`VERCEL_TOKEN=${opts.vercel.token}`);
-      envLines.push(`VERCEL_ORG_ID=${opts.vercel.teamId}`);
-      envLines.push(`VERCEL_PROJECT_ID=${opts.vercel.projectId}`);
+      envMap["VERCEL_TOKEN"] = opts.vercel.token;
+      envMap["VERCEL_ORG_ID"] = opts.vercel.teamId;
+      envMap["VERCEL_PROJECT_ID"] = opts.vercel.projectId;
     }
+    const envLines = Object.entries(envMap).map(([k, v]) => `${k}=${v}`);
     await sandbox.writeFiles([
       {
         path: ".env",
