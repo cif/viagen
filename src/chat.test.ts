@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createTestServer } from "./test-server";
 import { registerChatRoutes } from "./chat";
 import { LogBuffer } from "./logger";
+import type { ViteDevServer } from "vite";
 
 /**
  * Tests for chat endpoint validation paths.
@@ -12,7 +13,8 @@ describe("chat routes — validation", () => {
   const logBuffer = new LogBuffer();
 
   const server = createTestServer((app) => {
-    registerChatRoutes(app, {
+    const fakeServer = { middlewares: app } as unknown as ViteDevServer;
+    registerChatRoutes(fakeServer, {
       env: {}, // no API key
       projectRoot: "/tmp/fake",
       logBuffer,
@@ -55,7 +57,8 @@ describe("chat routes — body validation", () => {
   const logBuffer = new LogBuffer();
 
   const server = createTestServer((app) => {
-    registerChatRoutes(app, {
+    const fakeServer = { middlewares: app } as unknown as ViteDevServer;
+    registerChatRoutes(fakeServer, {
       env: { ANTHROPIC_API_KEY: "sk-test-key" },
       projectRoot: "/tmp/fake",
       logBuffer,

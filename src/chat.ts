@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createRequire } from "node:module";
 import type { IncomingMessage } from "node:http";
-import type Connect from "connect";
+import type { ViteDevServer } from "vite";
 import type { LogBuffer } from "./logger";
 import { refreshAccessToken } from "./oauth";
 
@@ -19,14 +19,13 @@ function readBody(req: IncomingMessage): Promise<string> {
 export const DEFAULT_SYSTEM_PROMPT = `You are embedded in a Vite dev server as the "viagen" plugin. Your job is to help build and modify the app. Files you edit will trigger Vite HMR automatically. You can read .viagen/server.log to check recent Vite dev server output (compile errors, HMR updates, warnings). When running in a sandbox with git, the gh CLI is available and authenticated — you can create pull requests, comment on issues, and manage releases. If Vercel credentials are set, you can run "vercel deploy" to publish a preview and share the URL. Be concise.`;
 
 export function findClaudeBin(): string {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const _require = typeof require !== "undefined" && typeof require.resolve === "function" ? require : createRequire(import.meta.url);
+  const _require = createRequire(import.meta.url);
   const pkgPath = _require.resolve("@anthropic-ai/claude-code/package.json");
   return pkgPath.replace("package.json", "cli.js");
 }
 
 export function registerChatRoutes(
-  app: Connect.Server,
+  server: ViteDevServer,
   opts: {
     env: Record<string, string>;
     projectRoot: string;
@@ -38,13 +37,13 @@ export function registerChatRoutes(
 ) {
   let sessionId: string | undefined;
 
-  app.use("/via/chat/reset", (_req, res) => {
+  server.middlewares.use("/via/chat/reset", (_req, res) => {
     sessionId = undefined;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ status: "ok" }));
   });
 
-  app.use("/via/chat", async (req, res) => {
+  server.middlewares.use("/via/chat", async (req, res) => {
     if (req.method !== "POST") {
       res.statusCode = 405;
       res.end(JSON.stringify({ error: "Method not allowed" }));

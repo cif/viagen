@@ -3,7 +3,6 @@ export function buildClientScript(opts: {
   panelWidth: number;
   overlay: boolean;
   embedMode?: boolean;
-  buildTool?: "vite" | "webpack";
 }): string {
   const pos = opts.position;
   const pw = opts.panelWidth;
@@ -23,7 +22,7 @@ export function buildClientScript(opts: {
 
   return /* js */ `
 (function() {
-  var OVERLAY_ENABLED = ${opts.overlay && (opts.buildTool ?? "vite") === "vite"};
+  var OVERLAY_ENABLED = ${opts.overlay};
   var EMBED_MODE = ${opts.embedMode ? "true" : "false"};
 
   /* ---- Error overlay: inject Fix button into shadow DOM ---- */
@@ -89,7 +88,7 @@ export function buildClientScript(opts: {
       var errorData = await errorRes.json();
       if (!errorData.error) { win.classList.remove('viagen-fixing'); return; }
       var e = errorData.error;
-      var prompt = 'Fix this build error in ' +
+      var prompt = 'Fix this Vite build error in ' +
         (e.loc ? e.loc.file + ':' + e.loc.line : 'unknown file') +
         ':\\n\\n' + e.message +
         (e.frame ? '\\n\\nCode frame:\\n' + e.frame : '');
