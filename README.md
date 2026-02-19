@@ -62,24 +62,11 @@ viagen({
   panelWidth: 420,           // chat panel width in px
   overlay: true,             // fix button on error overlay
   ui: true,                  // inject chat panel into pages
+  sandboxFiles: [...],       // copy files manually into sandbox
   systemPrompt: '...',       // custom system prompt (see below)
-  editable: ['src', '.env'], // files/dirs editable in the UI
+  editable: ['src','conf'],  // files/dirs editable in the UI
 })
 ```
-
-### Sandbox Files
-
-Gitignored files (credentials, service accounts, etc.) aren't included when cloning from remote. To forward them into the sandbox, add a `viagen.sandboxFiles` array to your `package.json`:
-
-```json
-{
-  "viagen": {
-    "sandboxFiles": ["creds.json", "service-account.json"]
-  }
-}
-```
-
-These files are always overlaid into the sandbox regardless of deploy mode.
 
 ### Editable Files
 
