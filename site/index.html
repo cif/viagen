@@ -397,6 +397,42 @@ export default defineConfig({
             </section>
 
             <section>
+                <h2>SSR Frameworks</h2>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                    "
+                >
+                    For plain Vite apps, the chat panel is injected
+                    automatically. SSR frameworks (React Router, Remix,
+                    SvelteKit, etc.) render their own HTML, so add one script
+                    tag to your root layout:
+                </p>
+                <pre
+                    style="margin-top: 12px"
+                ><code>&lt;script src="/via/client.js" defer&gt;&lt;/script&gt;</code></pre>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                        margin-top: 12px;
+                    "
+                >
+                    For React Router, add it to
+                    <code style="font-size: 12px; color: var(--code-text)"
+                        >app/root.tsx</code
+                    >
+                    inside the
+                    <code style="font-size: 12px; color: var(--code-text)"
+                        >&lt;head&gt;</code
+                    >.
+                </p>
+            </section>
+
+            <section>
                 <h2>Step 3 — Sandbox</h2>
                 <div class="install">
                     <code>npx viagen sandbox</code>
@@ -430,7 +466,7 @@ npx viagen sandbox stop &lt;sandboxId&gt;</code></pre>
             </section>
 
             <section>
-                <h2>SSR Frameworks</h2>
+                <h2>Vite Plugin Options</h2>
                 <p
                     style="
                         font-size: 15px;
@@ -556,7 +592,9 @@ GET  /via/ui          — standalone chat interface
 GET  /via/iframe      — split view (app + chat side by side)
 GET  /via/files       — list editable files (when configured)
 GET  /via/file?path=  — read file content
-POST /via/file        — write file content { path, content }</code></pre>
+POST /via/file        — write file content { path, content }
+GET  /via/git/status  — list changed files (git status)
+GET  /via/git/diff    — full diff, or single file with ?path=</code></pre>
                 <p
                     style="
                         font-size: 15px;

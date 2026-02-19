@@ -1,5 +1,10 @@
-export function buildUiHtml(opts?: { editable?: boolean }): string {
+export function buildUiHtml(opts?: {
+  editable?: boolean;
+  git?: boolean;
+}): string {
   const hasEditor = opts?.editable ?? false;
+  const hasGit = opts?.git ?? false;
+  const hasTabs = hasEditor || hasGit;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -113,7 +118,7 @@ export function buildUiHtml(opts?: { editable?: boolean }): string {
       gap: 8px;
     }
     .messages:empty::after {
-      content: 'Ask Claude to build something...';
+      content: 'Ask Claude to build features or change something...';
       color: #3f3f46;
       font-size: 13px;
       text-align: center;
@@ -385,6 +390,86 @@ export function buildUiHtml(opts?: { editable?: boolean }): string {
       background: #0a0a0c;
       border-right: 1px solid #1e1e22;
     }
+    .changes-file {
+      padding: 8px 16px;
+      font-family: ui-monospace, monospace;
+      font-size: 12px;
+      color: #a1a1aa;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.1s;
+      border-bottom: 1px solid #1e1e22;
+    }
+    .changes-file:hover { background: #18181b; color: #e4e4e7; }
+    .changes-file .file-path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .changes-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .changes-dot.M { background: #facc15; }
+    .changes-dot.A { background: #4ade80; }
+    .changes-dot.q { background: #4ade80; }
+    .changes-dot.D { background: #f87171; }
+    .changes-dot.R { background: #60a5fa; }
+    .changes-badge {
+      font-size: 10px;
+      color: #52525b;
+      font-family: ui-monospace, monospace;
+    }
+    .changes-summary {
+      padding: 8px 16px;
+      border-bottom: 1px solid #27272a;
+      background: #18181b;
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      color: #71717a;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .changes-summary .stat-add { color: #4ade80; }
+    .changes-summary .stat-del { color: #f87171; }
+    .changes-summary .stat-files { color: #a1a1aa; }
+    .file-delta {
+      font-family: ui-monospace, monospace;
+      font-size: 10px;
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .file-delta .d-add { color: #4ade80; }
+    .file-delta .d-del { color: #f87171; }
+    .diff-view {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    .diff-line {
+      padding: 0 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .diff-add { color: #4ade80; background: rgba(74,222,128,0.08); }
+    .diff-del { color: #f87171; background: rgba(248,113,113,0.08); }
+    .diff-hunk { color: #a78bfa; background: rgba(167,139,250,0.06); padding-top: 6px; margin-top: 4px; }
+    .diff-meta { color: #52525b; }
+    .diff-ctx { color: #71717a; }
+    .changes-empty {
+      padding: 16px;
+      color: #52525b;
+      font-size: 12px;
+      font-family: ui-monospace, monospace;
+      text-align: center;
+      margin-top: 40%;
+    }
   </style>
 </head>
 <body>
@@ -401,10 +486,15 @@ export function buildUiHtml(opts?: { editable?: boolean }): string {
       <button class="btn" id="reset-btn">Reset</button>
     </div>
   </div>
-  ${hasEditor ? `<div class="tab-bar" id="tab-bar">
+  ${
+    hasTabs
+      ? `<div class="tab-bar" id="tab-bar">
     <button class="tab active" data-tab="chat">Chat</button>
-    <button class="tab" data-tab="files">Files</button>
-  </div>` : ''}
+    ${hasEditor ? '<button class="tab" data-tab="files">Files</button>' : ""}
+    ${hasGit ? '<button class="tab" data-tab="changes" id="changes-tab">Changes</button>' : ""}
+  </div>`
+      : ""
+  }
   <div id="chat-view" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
     <div class="setup-banner" id="setup-banner"></div>
     <div class="activity-bar" id="activity-bar"></div>
@@ -414,7 +504,9 @@ export function buildUiHtml(opts?: { editable?: boolean }): string {
       <button class="send-btn" id="send-btn">Send</button>
     </div>
   </div>
-  ${hasEditor ? `<div id="files-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+  ${
+    hasEditor
+      ? `<div id="files-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
     <div id="file-list-view" style="flex:1;overflow-y:auto;">
       <div id="file-list" style="padding:0;"></div>
     </div>
@@ -429,7 +521,26 @@ export function buildUiHtml(opts?: { editable?: boolean }): string {
         <textarea id="editor-textarea" class="editor-textarea" spellcheck="false"></textarea>
       </div>
     </div>
-  </div>` : ''}
+  </div>`
+      : ""
+  }
+  ${
+    hasGit
+      ? `<div id="changes-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+    <div class="changes-summary" id="changes-summary" style="display:none;"></div>
+    <div id="changes-list-view" style="flex:1;overflow-y:auto;">
+      <div id="changes-list" style="padding:0;"></div>
+    </div>
+    <div id="changes-diff-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+      <div class="editor-header">
+        <button class="editor-back" id="diff-back" title="Back to changes">&#x2190;</button>
+        <span class="editor-filename" id="diff-filename"></span>
+      </div>
+      <div class="diff-view" id="diff-content"></div>
+    </div>
+  </div>`
+      : ""
+  }
   <script>
     var STORAGE_KEY = 'viagen_chatLog';
     var SOUND_KEY = 'viagen_sound';
@@ -877,12 +988,39 @@ export function buildUiHtml(opts?: { editable?: boolean }): string {
 
     loadHistory();
 
-    // ── File editor panel ──
-    ${hasEditor ? `
+    // ── Tab switching ──
+    ${
+      hasTabs
+        ? `
     (function() {
       var chatView = document.getElementById('chat-view');
       var filesView = document.getElementById('files-view');
+      var changesView = document.getElementById('changes-view');
       var tabs = document.querySelectorAll('.tab');
+
+      tabs.forEach(function(tab) {
+        tab.addEventListener('click', function() {
+          tabs.forEach(function(t) { t.classList.remove('active'); });
+          tab.classList.add('active');
+          var target = tab.dataset.tab;
+          chatView.style.display = target === 'chat' ? 'flex' : 'none';
+          if (filesView) filesView.style.display = target === 'files' ? 'flex' : 'none';
+          if (changesView) changesView.style.display = target === 'changes' ? 'flex' : 'none';
+          if (target === 'files' && window._viagenLoadFiles) window._viagenLoadFiles();
+          if (target === 'changes' && window._viagenLoadChanges) window._viagenLoadChanges();
+          if (target === 'chat') inputEl.focus();
+        });
+      });
+    })();
+    `
+        : ""
+    }
+
+    // ── File editor panel ──
+    ${
+      hasEditor
+        ? `
+    (function() {
       var fileListView = document.getElementById('file-list-view');
       var fileEditorView = document.getElementById('file-editor-view');
       var editorTextarea = document.getElementById('editor-textarea');
@@ -893,20 +1031,8 @@ export function buildUiHtml(opts?: { editable?: boolean }): string {
 
       var editorState = { path: '', original: '', modified: false };
 
-      // Tab switching
-      tabs.forEach(function(tab) {
-        tab.addEventListener('click', function() {
-          tabs.forEach(function(t) { t.classList.remove('active'); });
-          tab.classList.add('active');
-          var target = tab.dataset.tab;
-          chatView.style.display = target === 'chat' ? 'flex' : 'none';
-          filesView.style.display = target === 'files' ? 'flex' : 'none';
-          if (target === 'files') loadFileList();
-          if (target === 'chat') inputEl.focus();
-        });
-      });
-
       // File list
+      window._viagenLoadFiles = loadFileList;
       async function loadFileList() {
         var listEl = document.getElementById('file-list');
         listEl.innerHTML = '<div style="padding:16px;color:#52525b;font-size:12px;font-family:ui-monospace,monospace;">Loading...</div>';
@@ -1040,7 +1166,136 @@ export function buildUiHtml(opts?: { editable?: boolean }): string {
       });
 
     })();
-    ` : ''}
+    `
+        : ""
+    }
+
+    // ── Changes panel (git diff) ──
+    ${
+      hasGit
+        ? `
+    (function() {
+      var changesListView = document.getElementById('changes-list-view');
+      var changesDiffView = document.getElementById('changes-diff-view');
+      var changesListEl = document.getElementById('changes-list');
+      var diffContent = document.getElementById('diff-content');
+      var diffFilename = document.getElementById('diff-filename');
+      var changesTab = document.getElementById('changes-tab');
+      var changesSummary = document.getElementById('changes-summary');
+
+      window._viagenLoadChanges = loadChanges;
+
+      async function loadChanges() {
+        changesListView.style.display = 'block';
+        changesDiffView.style.display = 'none';
+        changesSummary.style.display = 'none';
+        changesListEl.innerHTML = '<div style="padding:16px;color:#52525b;font-size:12px;font-family:ui-monospace,monospace;">Loading...</div>';
+        try {
+          var res = await fetch('/via/git/status');
+          var data = await res.json();
+          if (!data.git) {
+            changesListEl.innerHTML = '<div class="changes-empty">Not a git repository</div>';
+            if (changesTab) changesTab.textContent = 'Changes';
+            return;
+          }
+          renderSummary(data);
+          renderChanges(data.files);
+        } catch(e) {
+          changesListEl.innerHTML = '<div style="padding:16px;color:#f87171;font-size:12px;">Failed to load changes</div>';
+        }
+      }
+
+      function renderSummary(data) {
+        var ins = data.insertions || 0;
+        var del = data.deletions || 0;
+        var count = data.files ? data.files.length : 0;
+        if (count === 0) { changesSummary.style.display = 'none'; return; }
+        changesSummary.style.display = 'flex';
+        changesSummary.innerHTML =
+          '<span class="stat-files">' + count + (count === 1 ? ' file' : ' files') + '</span>' +
+          (ins > 0 ? '<span class="stat-add">+' + ins + '</span>' : '') +
+          (del > 0 ? '<span class="stat-del">-' + del + '</span>' : '');
+      }
+
+      function renderChanges(files) {
+        changesListEl.innerHTML = '';
+        if (changesTab) changesTab.textContent = files.length > 0 ? 'Changes (' + files.length + ')' : 'Changes';
+        if (files.length === 0) {
+          changesListEl.innerHTML = '<div class="changes-empty">No changes</div>';
+          return;
+        }
+        files.forEach(function(f) {
+          var item = document.createElement('div');
+          item.className = 'changes-file';
+          var dotClass = f.status === '?' ? 'q' : f.status;
+          var statusLabel = f.status === '?' ? 'Untracked' : f.status === 'M' ? 'Modified' : f.status === 'A' ? 'Added' : f.status === 'D' ? 'Deleted' : f.status === 'R' ? 'Renamed' : f.status;
+          var deltaHtml = '';
+          if (f.insertions > 0 || f.deletions > 0) {
+            deltaHtml = '<span class="file-delta">' +
+              (f.insertions > 0 ? '<span class="d-add">+' + f.insertions + '</span>' : '') +
+              (f.deletions > 0 ? '<span class="d-del">-' + f.deletions + '</span>' : '') +
+              '</span>';
+          }
+          item.innerHTML = '<span class="changes-dot ' + dotClass + '" title="' + statusLabel + '"></span>' +
+            '<span class="file-path" title="' + escapeHtml(f.path) + '">' + escapeHtml(f.path) + '</span>' +
+            deltaHtml;
+          item.addEventListener('click', function() { openDiff(f.path); });
+          changesListEl.appendChild(item);
+        });
+      }
+
+      async function openDiff(path) {
+        changesListView.style.display = 'none';
+        changesDiffView.style.display = 'flex';
+        diffFilename.textContent = path;
+        diffContent.innerHTML = '<div style="padding:16px;color:#52525b;font-size:12px;font-family:ui-monospace,monospace;">Loading diff...</div>';
+
+        try {
+          var res = await fetch('/via/git/diff?path=' + encodeURIComponent(path));
+          var data = await res.json();
+          renderDiff(data.diff);
+        } catch(e) {
+          diffContent.innerHTML = '<div style="padding:16px;color:#f87171;font-size:12px;">Failed to load diff</div>';
+        }
+      }
+
+      function renderDiff(diff) {
+        diffContent.innerHTML = '';
+        if (!diff) {
+          diffContent.innerHTML = '<div class="changes-empty">No diff available</div>';
+          return;
+        }
+        var lines = diff.split('\\n');
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i];
+          var div = document.createElement('div');
+          div.className = 'diff-line';
+          if (line.charAt(0) === '+' && !line.startsWith('+++')) {
+            div.className += ' diff-add';
+          } else if (line.charAt(0) === '-' && !line.startsWith('---')) {
+            div.className += ' diff-del';
+          } else if (line.startsWith('@@')) {
+            div.className += ' diff-hunk';
+          } else if (line.startsWith('diff ') || line.startsWith('index ') || line.startsWith('---') || line.startsWith('+++')) {
+            div.className += ' diff-meta';
+          } else {
+            div.className += ' diff-ctx';
+          }
+          div.textContent = line;
+          diffContent.appendChild(div);
+        }
+      }
+
+      // Back button
+      document.getElementById('diff-back').addEventListener('click', function() {
+        changesDiffView.style.display = 'none';
+        changesListView.style.display = 'block';
+      });
+
+    })();
+    `
+        : ""
+    }
   </script>
 </body>
 </html>`;

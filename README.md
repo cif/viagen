@@ -153,6 +153,8 @@ GET  /via/iframe      — split view (app + chat side by side)
 GET  /via/files       — list editable files (when configured)
 GET  /via/file?path=  — read file content
 POST /via/file        — write file content { path, content }
+GET  /via/git/status  — list changed files (git status)
+GET  /via/git/diff    — full diff, or single file with ?path=
 ```
 
 When `VIAGEN_AUTH_TOKEN` is set (always on in sandboxes), pass the token as a `Bearer` header or `?token=` query param.

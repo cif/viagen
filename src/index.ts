@@ -10,6 +10,7 @@ import { buildIframeHtml } from "./iframe";
 import { createAuthMiddleware } from "./auth";
 import { registerFileRoutes } from "./files";
 import { createInjectionMiddleware } from "./inject";
+import { registerGitRoutes } from "./git";
 
 export interface ViagenOptions {
   /** Toggle button placement. Default: 'bottom-right' */
@@ -148,7 +149,7 @@ export function viagen(options?: ViagenOptions): Plugin {
       // Chat UI
       server.middlewares.use("/via/ui", (_req, res) => {
         res.setHeader("Content-Type", "text/html");
-        res.end(buildUiHtml({ editable: hasEditor }));
+        res.end(buildUiHtml({ editable: hasEditor, git: true }));
       });
 
       server.middlewares.use("/via/iframe", (_req, res) => {
@@ -178,6 +179,9 @@ export function viagen(options?: ViagenOptions): Plugin {
           projectRoot,
         });
       }
+
+      // Git routes (status + diff)
+      registerGitRoutes(server, { projectRoot });
 
       // Post-middleware: inject client script into SSR-rendered HTML
       // Runs after Vite's internal transformIndexHtml middleware
