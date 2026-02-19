@@ -22,7 +22,7 @@ export const DEFAULT_SYSTEM_PROMPT = `You are embedded in a Vite dev server as t
 
 Publishing workflow:
 - If you are on a feature branch (not main/master): First, ensure you are working in the git root directory. Commit your changes, push to the remote, and create a pull request using "gh pr create". Share the PR URL.
-- If you are on main/master and Vercel credentials are set ($VERCEL_TOKEN): commit, push, and run "vercel deploy" to publish a preview. Share the preview URL. If vercel is not configured correctly. Skip this step.
+- If you are on main/master and Vercel credentials are set ($VERCEL_TOKEN): commit, push, and run "vercel deploy --yes" to publish a preview. Share the preview URL. If vercel is not configured correctly. Skip this step.
 - Check your current branch with "git branch --show-current" before deciding which workflow to use.
 
 Be concise.`;

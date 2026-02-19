@@ -8,6 +8,7 @@ import { oauthMaxFlow, oauthConsoleFlow, refreshAccessToken } from "./oauth";
 import type { GitInfo } from "./sandbox";
 import {
   createViagen,
+  ViagenApiError,
   saveCredentials,
   loadCredentials,
   clearCredentials,
@@ -855,9 +856,201 @@ async function sandbox(args: string[]) {
   openBrowser(iframeUrl);
 }
 
+// ─── sync helpers ───────────────────────────────────────────────
+
+const SYNC_KEYS = [
+  "CLAUDE_ACCESS_TOKEN",
+  "CLAUDE_REFRESH_TOKEN",
+  "CLAUDE_TOKEN_EXPIRES",
+  "ANTHROPIC_API_KEY",
+  "GITHUB_TOKEN",
+  "VERCEL_TOKEN",
+  "VERCEL_TEAM_ID",
+  "VERCEL_PROJECT_ID",
+  "GIT_USER_NAME",
+  "GIT_USER_EMAIL",
+] as const;
+
+/** Gather credentials from env vars to sync as project secrets. */
+export function gatherSyncSecrets(
+  env: Record<string, string>,
+): Record<string, string> {
+  const secrets: Record<string, string> = {};
+  for (const key of SYNC_KEYS) {
+    if (env[key]) secrets[key] = env[key];
+  }
+  return secrets;
+}
+
+// ─── sync command ───────────────────────────────────────────────
+
+async function sync() {
+  const client = await requireClient();
+  const cwd = process.cwd();
+  const env = loadDotenv(cwd);
+
+  console.log("viagen sync");
+  console.log("");
+
+  // Check for existing project ID from a previous sync
+  let projectId: string | undefined = env["VIAGEN_PROJECT_ID"];
+  let projectName: string | undefined;
+
+  if (projectId) {
+    try {
+      const existing = await client.projects.get(projectId);
+      projectName = existing.name;
+      console.log(`Project: ${projectName}`);
+    } catch {
+      console.log("Previously synced project not found. Choose a project:");
+      console.log("");
+      projectId = undefined;
+    }
+  }
+
+  if (!projectId) {
+    const projects = await client.projects.list();
+
+    if (projects.length > 0) {
+      console.log("Your projects:");
+      console.log("");
+      for (let i = 0; i < projects.length; i++) {
+        const repo = projects[i].githubRepo ? ` (${projects[i].githubRepo})` : "";
+        console.log(`  ${i + 1}) ${projects[i].name}${repo}`);
+      }
+      console.log(`  ${projects.length + 1}) Create new project`);
+      console.log("");
+
+      const choice = await promptUser("Choose: ");
+      const idx = parseInt(choice, 10) - 1;
+
+      if (idx >= 0 && idx < projects.length) {
+        projectId = projects[idx].id;
+        projectName = projects[idx].name;
+      } else {
+        projectName = await promptUser("Project name: ");
+        if (!projectName) {
+          console.log("Cancelled.");
+          return;
+        }
+      }
+    } else {
+      projectName = await promptUser("Project name: ");
+      if (!projectName) {
+        console.log("Cancelled.");
+        return;
+      }
+    }
+  }
+
+  // Gather secrets from local .env
+  const secrets = gatherSyncSecrets(env);
+
+  if (Object.keys(secrets).length === 0) {
+    console.error("No credentials found in .env to sync.");
+    console.error("Run `viagen setup` first to configure credentials.");
+    process.exit(1);
+  }
+
+  // Refresh Claude tokens if expired before syncing
+  if (secrets["CLAUDE_ACCESS_TOKEN"] && env["CLAUDE_REFRESH_TOKEN"]) {
+    const expires = parseInt(env["CLAUDE_TOKEN_EXPIRES"] || "0", 10);
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (nowSec > expires - 300) {
+      console.log("Refreshing Claude tokens...");
+      try {
+        const tokens = await refreshAccessToken(env["CLAUDE_REFRESH_TOKEN"]);
+        secrets["CLAUDE_ACCESS_TOKEN"] = tokens.access_token;
+        secrets["CLAUDE_REFRESH_TOKEN"] = tokens.refresh_token;
+        secrets["CLAUDE_TOKEN_EXPIRES"] = String(nowSec + tokens.expires_in);
+        // Persist refreshed tokens locally
+        updateEnvVars(cwd, {
+          CLAUDE_ACCESS_TOKEN: tokens.access_token,
+          CLAUDE_REFRESH_TOKEN: tokens.refresh_token,
+          CLAUDE_TOKEN_EXPIRES: String(nowSec + tokens.expires_in),
+        });
+        console.log("  Tokens refreshed.");
+      } catch (err) {
+        console.error(
+          "Failed to refresh Claude tokens. Run `viagen setup` to re-authenticate.",
+        );
+        console.error(`  ${err instanceof Error ? err.message : String(err)}`);
+        process.exit(1);
+      }
+    }
+  }
+
+  // Show summary and confirm
+  console.log("");
+  console.log(`Secrets to sync (${Object.keys(secrets).length}):`);
+  for (const key of Object.keys(secrets)) {
+    console.log(`  ${key}`);
+  }
+  console.log("");
+
+  const answer = await promptUser("Push to platform? [y/n]: ");
+  if (answer !== "y" && answer !== "yes") {
+    console.log("Cancelled.");
+    return;
+  }
+
+  // Extract project metadata from env/git
+  const gitRemote = env["GIT_REMOTE_URL"];
+  const githubRepo = gitRemote ? repoNwo(gitRemote) : undefined;
+  const gitInfo = getGitInfo(cwd);
+  const gitBranch = env["GIT_BRANCH"] || gitInfo?.branch;
+
+  console.log("");
+  console.log("Syncing...");
+
+  const syncInput = {
+    ...(projectId ? { id: projectId } : {}),
+    name: projectName!,
+    ...(githubRepo ? { githubRepo } : {}),
+    ...(gitBranch ? { gitBranch } : {}),
+    secrets,
+  };
+
+  let result;
+  try {
+    result = await client.projects.sync(syncInput);
+  } catch (err) {
+    const logDir = join(cwd, ".viagen");
+    const logFile = join(logDir, "sync-error.log");
+    if (!existsSync(logDir)) {
+      const { mkdirSync } = await import("node:fs");
+      mkdirSync(logDir, { recursive: true });
+    }
+    const timestamp = new Date().toISOString();
+    const lines = [`[${timestamp}] viagen sync failed`];
+    if (err instanceof ViagenApiError) {
+      lines.push(`Status: ${err.status}`);
+      lines.push(`Message: ${err.message}`);
+      if (err.detail) lines.push(`Detail: ${err.detail}`);
+    } else {
+      lines.push(`Error: ${err instanceof Error ? err.stack || err.message : String(err)}`);
+    }
+    lines.push(`Input: ${JSON.stringify({ ...syncInput, secrets: Object.keys(syncInput.secrets || {}) })}`);
+    writeFileSync(logFile, lines.join("\n") + "\n");
+    console.error("Sync failed. A complete log has been written to:");
+    console.error(`  ${logFile}`);
+    process.exit(1);
+  }
+
+  // Save project ID for future syncs
+  if (!env["VIAGEN_PROJECT_ID"]) {
+    writeEnvVars(cwd, { VIAGEN_PROJECT_ID: result.project.id });
+  }
+
+  console.log(
+    `Synced "${result.project.name}" — ${result.secrets.stored} secrets stored.`,
+  );
+  console.log("You can now launch sandboxes from the web platform.");
+}
+
 // ─── login command ───────────────────────────────────────────────
 
-const PLATFORM_URL = "http://localhost:5175";
+const PLATFORM_URL = process.env.VIAGEN_PLATFORM_URL || "https://app.viagen.dev";
 
 async function login() {
   // Check if already logged in
@@ -1008,7 +1201,7 @@ async function orgs(args: string[]) {
 
   for (const m of memberships) {
     const role = m.role ? ` (${m.role})` : "";
-    console.log(`  ${m.organizationName}${role}`);
+    console.log(`  ${m.name}${role}`);
   }
 }
 
@@ -1097,6 +1290,7 @@ function help() {
   console.log("  setup                          Set up .env with API keys and tokens");
   console.log("  sandbox [-b branch] [-t min]   Deploy your project to a Vercel Sandbox");
   console.log("  sandbox stop <id>              Stop a running sandbox");
+  console.log("  sync                           Push local credentials to the platform");
   console.log("  help                           Show this help message");
   console.log("");
   console.log("Sandbox options:");
@@ -1170,6 +1364,8 @@ async function main() {
     await setup();
   } else if (command === "sandbox") {
     await sandbox(args.slice(1));
+  } else if (command === "sync") {
+    await sync();
   } else {
     help();
   }
