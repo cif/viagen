@@ -21,8 +21,8 @@ function readBody(req: IncomingMessage): Promise<string> {
 export const DEFAULT_SYSTEM_PROMPT = `You are embedded in a Vite dev server as the "viagen" plugin. Your job is to help build and modify the app. Files you edit will trigger Vite HMR automatically. You can read .viagen/server.log to check recent Vite dev server output (compile errors, HMR updates, warnings). When running in a sandbox with git, the gh CLI is available and authenticated — you can create pull requests, comment on issues, and manage releases.
 
 Publishing workflow:
-- If you are on a feature branch (not main/master): commit your changes, push to the remote, and create a pull request using "gh pr create". Share the PR URL.
-- If you are on main/master and Vercel credentials are set ($VERCEL_TOKEN): commit, push, and run "vercel deploy" to publish a preview. Share the preview URL.
+- If you are on a feature branch (not main/master): First, ensure you are working in the git root directory. Commit your changes, push to the remote, and create a pull request using "gh pr create". Share the PR URL.
+- If you are on main/master and Vercel credentials are set ($VERCEL_TOKEN): commit, push, and run "vercel deploy" to publish a preview. Share the preview URL. If vercel is not configured correctly. Skip this step.
 - Check your current branch with "git branch --show-current" before deciding which workflow to use.
 
 Be concise.`;
@@ -65,7 +65,9 @@ export function registerChatRoutes(
     if (!hasApiKey && !hasOAuthToken) {
       res.statusCode = 500;
       res.end(
-        JSON.stringify({ error: "No Claude auth configured. Run `npx viagen setup`." }),
+        JSON.stringify({
+          error: "No Claude auth configured. Run `npx viagen setup`.",
+        }),
       );
       return;
     }
@@ -76,7 +78,9 @@ export function registerChatRoutes(
       const nowSec = Math.floor(Date.now() / 1000);
       if (nowSec > expires - 300) {
         try {
-          const tokens = await refreshAccessToken(opts.env["CLAUDE_REFRESH_TOKEN"]);
+          const tokens = await refreshAccessToken(
+            opts.env["CLAUDE_REFRESH_TOKEN"],
+          );
           opts.env["CLAUDE_ACCESS_TOKEN"] = tokens.access_token;
           opts.env["CLAUDE_REFRESH_TOKEN"] = tokens.refresh_token;
           opts.env["CLAUDE_TOKEN_EXPIRES"] = String(nowSec + tokens.expires_in);
@@ -102,7 +106,9 @@ export function registerChatRoutes(
           const msg = err instanceof Error ? err.message : String(err);
           console.error(`[viagen] OAuth token refresh failed: ${msg}`);
           res.statusCode = 500;
-          res.end(JSON.stringify({ error: `OAuth token refresh failed: ${msg}` }));
+          res.end(
+            JSON.stringify({ error: `OAuth token refresh failed: ${msg}` }),
+          );
           return;
         }
       }
@@ -155,7 +161,7 @@ export function registerChatRoutes(
     args.push(message);
 
     const childEnv: Record<string, string> = {
-      ...process.env as Record<string, string>,
+      ...(process.env as Record<string, string>),
       CLAUDECODE: "",
     };
     if (hasApiKey) {
