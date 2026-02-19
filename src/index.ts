@@ -8,6 +8,7 @@ import { buildClientScript } from "./overlay";
 import { buildUiHtml } from "./ui";
 import { buildIframeHtml } from "./iframe";
 import { createAuthMiddleware } from "./auth";
+import { registerFileRoutes } from "./files";
 
 export interface ViagenOptions {
   /** Toggle button placement. Default: 'bottom-right' */
@@ -28,6 +29,12 @@ export interface ViagenOptions {
    * @example ["config.json"]
    */
   sandboxFiles?: string[];
+  /**
+   * Files and directories editable through the UI file panel.
+   * Paths are relative to the project root. Directories include all files within.
+   * @example ['src/components', '.env', 'vite.config.ts']
+   */
+  editable?: string[];
 }
 
 export { DEFAULT_SYSTEM_PROMPT } from "./chat";
@@ -71,6 +78,7 @@ export function viagen(options?: ViagenOptions): Plugin {
         join(viagenDir, "config.json"),
         JSON.stringify({
           sandboxFiles: options?.sandboxFiles ?? [],
+          editable: options?.editable ?? [],
         }),
       );
     },
@@ -137,10 +145,12 @@ export function viagen(options?: ViagenOptions): Plugin {
         server.middlewares.use(createAuthMiddleware(authToken));
       }
 
-      // Chat UI + docs pages
+      const hasEditor = !!(options?.editable && options.editable.length > 0);
+
+      // Chat UI
       server.middlewares.use("/via/ui", (_req, res) => {
         res.setHeader("Content-Type", "text/html");
-        res.end(buildUiHtml());
+        res.end(buildUiHtml({ editable: hasEditor }));
       });
 
       server.middlewares.use("/via/iframe", (_req, res) => {
@@ -162,6 +172,14 @@ export function viagen(options?: ViagenOptions): Plugin {
         claudeBin,
         systemPrompt: options?.systemPrompt,
       });
+
+      // File editor routes
+      if (hasEditor) {
+        registerFileRoutes(server, {
+          editable: options!.editable!,
+          projectRoot,
+        });
+      }
     },
   };
 }

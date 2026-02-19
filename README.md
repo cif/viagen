@@ -63,6 +63,7 @@ viagen({
   overlay: true,             // fix button on error overlay
   ui: true,                  // inject chat panel into pages
   systemPrompt: '...',       // custom system prompt (see below)
+  editable: ['src', '.env'], // files/dirs editable in the UI
 })
 ```
 
@@ -79,6 +80,18 @@ Gitignored files (credentials, service accounts, etc.) aren't included when clon
 ```
 
 These files are always overlaid into the sandbox regardless of deploy mode.
+
+### Editable Files
+
+Add a file editor panel to the chat UI:
+
+```ts
+viagen({
+  editable: ['src/components', '.env', 'vite.config.ts']
+})
+```
+
+Paths can be files or directories (directories include all files within). The editor appears as a "Files" tab in the chat panel. `.env` files get a key-value form with masked values.
 
 The default system prompt:
 
@@ -126,6 +139,9 @@ GET  /via/health      — check API key status
 GET  /via/error       — latest build error (if any)
 GET  /via/ui          — standalone chat interface
 GET  /via/iframe      — split view (app + chat side by side)
+GET  /via/files       — list editable files (when configured)
+GET  /via/file?path=  — read file content
+POST /via/file        — write file content { path, content }
 ```
 
 When `VIAGEN_AUTH_TOKEN` is set (always on in sandboxes), pass the token as a `Bearer` header or `?token=` query param.

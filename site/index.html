@@ -438,8 +438,8 @@ npx viagen sandbox stop &lt;sandboxId&gt;</code></pre>
   overlay: true,             // fix button on error overlay
   ui: true,                  // inject chat panel into pages
   sandboxFiles: [...],       // copy files manually into sandbox
+  editable: ['src', '.env'], // files/dirs editable in the UI
   systemPrompt: '...',       // custom system prompt (see below)
-
 })</code></pre>
 
                 <p
@@ -517,7 +517,10 @@ POST /via/chat/reset  — clear conversation history
 GET  /via/health      — check API key status
 GET  /via/error       — latest build error (if any)
 GET  /via/ui          — standalone chat interface
-GET  /via/iframe      — split view (app + chat side by side)</code></pre>
+GET  /via/iframe      — split view (app + chat side by side)
+GET  /via/files       — list editable files (when configured)
+GET  /via/file?path=  — read file content
+POST /via/file        — write file content { path, content }</code></pre>
                 <p
                     style="
                         font-size: 15px;
