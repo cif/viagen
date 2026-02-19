@@ -10,8 +10,12 @@ export interface LogEntry {
 
 const MAX_LOG_LINES = 100;
 
+// Strip ANSI escape codes (colors, bold, etc.) for clean display in the UI
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1b\[[0-9;]*m/g;
+
 export class LogBuffer {
-  private entries: LogEntry[] = [];
+  private _entries: LogEntry[] = [];
   private logPath: string | undefined;
 
   init(projectRoot: string) {
@@ -22,22 +26,26 @@ export class LogBuffer {
   }
 
   push(level: LogEntry["level"], text: string) {
-    this.entries.push({ level, text, timestamp: Date.now() });
-    if (this.entries.length > MAX_LOG_LINES) {
-      this.entries.shift();
+    this._entries.push({ level, text: text.replace(ANSI_RE, ""), timestamp: Date.now() });
+    if (this._entries.length > MAX_LOG_LINES) {
+      this._entries.shift();
     }
     this.flush();
   }
 
+  getEntries(): readonly LogEntry[] {
+    return this._entries;
+  }
+
   recentErrors(): string[] {
-    return this.entries
+    return this._entries
       .filter((e) => e.level === "error" || e.level === "warn")
       .map((e) => `[${e.level.toUpperCase()}] ${e.text}`);
   }
 
   private flush() {
     if (!this.logPath) return;
-    const content = this.entries
+    const content = this._entries
       .map((e) => {
         const ts = new Date(e.timestamp).toISOString();
         return `[${ts}] [${e.level.toUpperCase()}] ${e.text}`;

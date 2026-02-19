@@ -155,6 +155,7 @@ GET  /via/file?path=  — read file content
 POST /via/file        — write file content { path, content }
 GET  /via/git/status  — list changed files (git status)
 GET  /via/git/diff    — full diff, or single file with ?path=
+GET  /via/logs        — dev server log entries, optional ?since=<timestamp>
 ```
 
 When `VIAGEN_AUTH_TOKEN` is set (always on in sandboxes), pass the token as a `Bearer` header or `?token=` query param.

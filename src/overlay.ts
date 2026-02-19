@@ -113,6 +113,7 @@ export function buildClientScript(opts: {
   }
 
   if (EMBED_MODE) return;
+  if (window.self !== window.top) return;
 
   /* ---- Floating toggle + iframe panel ---- */
   var PANEL_KEY = 'viagen_panel_open';

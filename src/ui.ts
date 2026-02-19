@@ -4,7 +4,7 @@ export function buildUiHtml(opts?: {
 }): string {
   const hasEditor = opts?.editable ?? false;
   const hasGit = opts?.git ?? false;
-  const hasTabs = hasEditor || hasGit;
+  const hasTabs = true; // Logs tab is always present
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -470,6 +470,45 @@ export function buildUiHtml(opts?: {
       text-align: center;
       margin-top: 40%;
     }
+    .logs-header {
+      padding: 6px 12px;
+      border-bottom: 1px solid #27272a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      background: #18181b;
+    }
+    .logs-header span {
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      color: #52525b;
+    }
+    .logs-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 0;
+    }
+    .log-entry {
+      padding: 1px 16px;
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #a1a1aa;
+    }
+    .log-entry.warn { color: #facc15; }
+    .log-entry.error { color: #f87171; }
+    .log-time { color: #52525b; margin-right: 8px; }
+    .logs-empty {
+      padding: 16px;
+      color: #52525b;
+      font-size: 12px;
+      font-family: ui-monospace, monospace;
+      text-align: center;
+      margin-top: 40%;
+    }
   </style>
 </head>
 <body>
@@ -492,6 +531,7 @@ export function buildUiHtml(opts?: {
     <button class="tab active" data-tab="chat">Chat</button>
     ${hasEditor ? '<button class="tab" data-tab="files">Files</button>' : ""}
     ${hasGit ? '<button class="tab" data-tab="changes" id="changes-tab">Changes</button>' : ""}
+    <button class="tab" data-tab="logs">Logs</button>
   </div>`
       : ""
   }
@@ -541,6 +581,13 @@ export function buildUiHtml(opts?: {
   </div>`
       : ""
   }
+  <div id="logs-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+    <div class="logs-header">
+      <span id="logs-count"></span>
+      <button class="btn" id="logs-refresh" style="font-size:11px;padding:2px 8px;">Refresh</button>
+    </div>
+    <div class="logs-list" id="logs-list"></div>
+  </div>
   <script>
     var STORAGE_KEY = 'viagen_chatLog';
     var SOUND_KEY = 'viagen_sound';
@@ -999,6 +1046,7 @@ export function buildUiHtml(opts?: {
       var chatView = document.getElementById('chat-view');
       var filesView = document.getElementById('files-view');
       var changesView = document.getElementById('changes-view');
+      var logsView = document.getElementById('logs-view');
       var tabs = document.querySelectorAll('.tab');
 
       tabs.forEach(function(tab) {
@@ -1009,8 +1057,11 @@ export function buildUiHtml(opts?: {
           chatView.style.display = target === 'chat' ? 'flex' : 'none';
           if (filesView) filesView.style.display = target === 'files' ? 'flex' : 'none';
           if (changesView) changesView.style.display = target === 'changes' ? 'flex' : 'none';
+          if (logsView) logsView.style.display = target === 'logs' ? 'flex' : 'none';
           if (target === 'files' && window._viagenLoadFiles) window._viagenLoadFiles();
           if (target === 'changes' && window._viagenLoadChanges) window._viagenLoadChanges();
+          if (target === 'logs' && window._viagenLoadLogs) window._viagenLoadLogs();
+          if (target !== 'logs' && window._viagenStopLogPolling) window._viagenStopLogPolling();
           if (target === 'chat') inputEl.focus();
         });
       });
@@ -1299,6 +1350,80 @@ export function buildUiHtml(opts?: {
     `
         : ""
     }
+
+    // ── Logs panel ──
+    (function() {
+      var logsList = document.getElementById('logs-list');
+      var logsCount = document.getElementById('logs-count');
+      var logsRefresh = document.getElementById('logs-refresh');
+      var lastTimestamp = 0;
+      var pollInterval = null;
+
+      window._viagenLoadLogs = loadLogs;
+      window._viagenStopLogPolling = stopPolling;
+
+      async function loadLogs() {
+        lastTimestamp = 0;
+        logsList.innerHTML = '';
+        await fetchLogs();
+        startPolling();
+      }
+
+      async function fetchLogs() {
+        try {
+          var url = '/via/logs';
+          if (lastTimestamp > 0) url += '?since=' + lastTimestamp;
+          var res = await fetch(url);
+          var data = await res.json();
+          if (data.entries.length === 0 && lastTimestamp === 0) {
+            logsList.innerHTML = '<div class="logs-empty">No logs yet</div>';
+            logsCount.textContent = '0 entries';
+            return;
+          }
+          if (data.entries.length > 0) {
+            // Remove empty placeholder if present
+            var empty = logsList.querySelector('.logs-empty');
+            if (empty) empty.remove();
+
+            for (var i = 0; i < data.entries.length; i++) {
+              var entry = data.entries[i];
+              var div = document.createElement('div');
+              div.className = 'log-entry' + (entry.level !== 'info' ? ' ' + entry.level : '');
+              var ts = new Date(entry.timestamp);
+              var time = ts.toTimeString().slice(0, 8);
+              div.innerHTML = '<span class="log-time">' + time + '</span>' + escapeHtml(entry.text);
+              logsList.appendChild(div);
+              lastTimestamp = Math.max(lastTimestamp, entry.timestamp);
+            }
+            // Auto-scroll to bottom
+            logsList.scrollTop = logsList.scrollHeight;
+          }
+          // Update count
+          var total = logsList.querySelectorAll('.log-entry').length;
+          logsCount.textContent = total + (total === 1 ? ' entry' : ' entries');
+        } catch(e) {
+          // Silent fail on poll
+        }
+      }
+
+      function startPolling() {
+        stopPolling();
+        pollInterval = setInterval(fetchLogs, 3000);
+      }
+
+      function stopPolling() {
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
+      }
+
+      logsRefresh.addEventListener('click', function() {
+        lastTimestamp = 0;
+        logsList.innerHTML = '';
+        fetchLogs();
+      });
+    })();
   </script>
 </body>
 </html>`;

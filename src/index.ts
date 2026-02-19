@@ -11,6 +11,7 @@ import { createAuthMiddleware } from "./auth";
 import { registerFileRoutes } from "./files";
 import { createInjectionMiddleware } from "./inject";
 import { registerGitRoutes } from "./git";
+import { registerLogRoutes } from "./logs";
 
 export interface ViagenOptions {
   /** Toggle button placement. Default: 'bottom-right' */
@@ -182,6 +183,9 @@ export function viagen(options?: ViagenOptions): Plugin {
 
       // Git routes (status + diff)
       registerGitRoutes(server, { projectRoot });
+
+      // Log routes (dev server logs)
+      registerLogRoutes(server, { logBuffer });
 
       // Post-middleware: inject client script into SSR-rendered HTML
       // Runs after Vite's internal transformIndexHtml middleware
