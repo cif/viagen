@@ -914,6 +914,9 @@ export function buildUiHtml(opts?: {
     });
     publishBtn.addEventListener('click', function () {
       if (isStreaming) return;
+      // Switch to chat tab if on another tab
+      var chatTab = document.querySelector('.tab[data-tab="chat"]');
+      if (chatTab && !chatTab.classList.contains('active')) chatTab.click();
       if (publishBtn.dataset.branch && publishBtn.dataset.branch !== 'main' && publishBtn.dataset.branch !== 'master') {
         inputEl.value = 'Commit all changes, push to the remote branch, and create a pull request using gh pr create. Share the PR URL.';
       } else {
