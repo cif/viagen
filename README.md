@@ -98,7 +98,7 @@ Add a file editor panel to the chat UI:
 
 ```ts
 viagen({
-  editable: ['src/components', '.env', 'vite.config.ts']
+  editable: ['src/components', 'vite.config.ts']
 })
 ```
 
