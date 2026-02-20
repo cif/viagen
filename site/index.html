@@ -70,6 +70,20 @@
                 font-weight: 700;
                 letter-spacing: -0.02em;
                 margin-bottom: 4px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+                -webkit-background-clip: text;
+                background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-size: 200% auto;
+                animation: gradient-shift 3s ease infinite;
+            }
+            @keyframes gradient-shift {
+                0%, 100% {
+                    background-position: 0% 50%;
+                }
+                50% {
+                    background-position: 100% 50%;
+                }
             }
             .etymology {
                 font-family: ui-monospace, monospace;
