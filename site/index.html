@@ -86,7 +86,8 @@
                 animation: gradient-shift 4s ease-in-out infinite;
             }
             @keyframes gradient-shift {
-                0%, 100% {
+                0%,
+                100% {
                     background-position: 0% 50%;
                 }
                 50% {
@@ -497,13 +498,25 @@ npx viagen sandbox stop &lt;sandboxId&gt;</code></pre>
                         Copy
                     </button>
                 </div>
-                <p style="font-size: 15px; color: var(--text-muted); line-height: 1.8;">
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                    "
+                >
                     Pushes your local credentials (Claude Max tokens, GitHub
                     token, Vercel config) to a platform project. Launch
                     sandboxes from the web — use your Max subscription from any
                     device without needing a browser redirect.
                 </p>
-                <p style="font-size: 15px; color: var(--text-muted); line-height: 1.8;">
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                    "
+                >
                     Claude tokens are refreshed automatically if expired before
                     syncing. Requires <code>viagen login</code> first.
                 </p>
@@ -584,9 +597,9 @@ open "http://localhost:5173/via/ui?token=$VIAGEN_AUTH_TOKEN"</code></pre>
 
             <div class="links">
                 <a href="/platform.html">Platform</a>
-                <a href="https://github.com/cif/viagen">GitHub</a>
+                <a href="https://github.com/viagen-dev/viagen">GitHub</a>
                 <a href="https://www.npmjs.com/package/viagen">npm</a>
-                <a href="https://github.com/cif/viagen/blob/main/LICENSE"
+                <a href="https://github.com/viagen-dev/viagen/blob/main/LICENSE"
                     >MIT License</a
                 >
                 <a href="/privacy.html">Privacy Policy</a>
