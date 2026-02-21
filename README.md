@@ -8,7 +8,21 @@ A Vite dev server plugin and CLI tool that enables you to use Claude Code in a s
 - [Vercel](https://vercel.com/signup) — Free plan works. Sandboxes last 45 min on Hobby, 5 hours on Pro.
 - [GitHub CLI](https://cli.github.com) — Enables git clone and push from sandboxes.
 
-## Step 1 — Add viagen to your app
+## Quick Setup (Claude Code Plugin)
+
+Install viagen with a single command:
+
+```
+/plugin marketplace add viagen-dev/viagen-claude-plugin
+/plugin install viagen@viagen-marketplace
+/viagen-setup
+```
+
+The plugin will handle npm installation, vite config updates, and run the setup wizard for you.
+
+## Manual Setup
+
+### Step 1 — Add viagen to your app
 
 ```bash
 npm install --save-dev viagen
@@ -24,7 +38,7 @@ export default defineConfig({
 })
 ```
 
-## Step 2 — Setup
+### Step 2 — Setup
 
 ```bash
 npx viagen setup
@@ -34,7 +48,7 @@ The setup wizard authenticates with Claude, detects your GitHub and Vercel crede
 
 You can now run `npm run dev` to start the local dev server. At this point you can launch viagen and chat with Claude to make changes to your app.
 
-## Step 3 — Sandbox
+### Step 3 — Sandbox
 
 ```bash
 npx viagen sandbox

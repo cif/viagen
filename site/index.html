@@ -331,6 +331,44 @@
             </section>
 
             <section>
+                <h2>Quick Setup (Claude Code Plugin)</h2>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                        margin-bottom: 12px;
+                    "
+                >
+                    Install viagen with a single command:
+                </p>
+                <div class="install">
+                    <code>/plugin marketplace add viagen-dev/viagen-claude-plugin
+/plugin install viagen@viagen-marketplace
+/viagen-setup</code>
+                    <button
+                        onclick="navigator.clipboard.writeText('/plugin marketplace add viagen-dev/viagen-claude-plugin\n/plugin install viagen@viagen-marketplace\n/viagen-setup').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})"
+                    >
+                        Copy
+                    </button>
+                </div>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                    "
+                >
+                    The plugin handles npm installation, vite config updates,
+                    and runs the setup wizard for you.
+                </p>
+            </section>
+
+            <section>
+                <h2>Manual Setup</h2>
+            </section>
+
+            <section>
                 <h2>Step 1 — Add viagen to your app</h2>
                 <div class="install">
                     <code>npm install --save-dev viagen</code>
