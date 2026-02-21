@@ -17,7 +17,6 @@ export function buildClientScript(opts: {
   const toggleSideKey = pos.includes("left") ? "left" : "right";
   const toggleVerticalKey = pos.includes("top") ? "top" : "bottom";
   const toggleClosedVal = "16px";
-  const toggleOpenVal = `${pw + 14}px`;
 
   return /* js */ `
 (function() {
@@ -119,10 +118,45 @@ export function buildClientScript(opts: {
   var PANEL_KEY = 'viagen_panel_open';
   var panel = document.createElement('div');
   panel.id = 'viagen-panel';
-  panel.style.cssText = 'position:fixed;top:0;${panelSide}bottom:0;width:${pw}px;z-index:99997;display:none;border-left:1px solid #27272a;box-shadow:-4px 0 24px rgba(0,0,0,0.5);';
+  var PANEL_WIDTH_KEY = 'viagen_panel_width';
+  var panelWidth = ${pw};
+  try { var saved = parseInt(sessionStorage.getItem(PANEL_WIDTH_KEY)); if (saved >= 280) panelWidth = saved; } catch(e) {}
+  panel.style.cssText = 'position:fixed;top:0;${panelSide}bottom:0;width:' + panelWidth + 'px;z-index:99997;display:none;border-${pos.includes("left") ? "right" : "left"}:1px solid #27272a;box-shadow:${pos.includes("left") ? "4" : "-4"}px 0 24px rgba(0,0,0,0.5);';
   var iframe = document.createElement('iframe');
   iframe.src = '/via/ui';
   iframe.style.cssText = 'width:100%;height:100%;border:none;background:#09090b;';
+
+  /* ---- Drag-resize handle ---- */
+  var handle = document.createElement('div');
+  handle.style.cssText = 'position:absolute;top:0;${pos.includes("left") ? "right" : "left"}:-3px;width:6px;height:100%;cursor:col-resize;z-index:1;background:transparent;transition:background 0.15s;';
+  handle.onmouseenter = function() { handle.style.background = '#3f3f46'; };
+  handle.onmouseleave = function() { if (!resizing) handle.style.background = 'transparent'; };
+  var resizing = false;
+
+  handle.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    resizing = true;
+    handle.style.background = '#3f3f46';
+    iframe.style.pointerEvents = 'none';
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!resizing) return;
+    var w = ${pos.includes("left") ? "e.clientX" : "window.innerWidth - e.clientX"};
+    if (w < 280) w = 280;
+    if (w > window.innerWidth - 100) w = window.innerWidth - 100;
+    panelWidth = w;
+    panel.style.width = w + 'px';
+    toggle.style.${toggleSideKey} = (w + 14) + 'px';
+  });
+  document.addEventListener('mouseup', function() {
+    if (!resizing) return;
+    resizing = false;
+    handle.style.background = 'transparent';
+    iframe.style.pointerEvents = '';
+    try { sessionStorage.setItem(PANEL_WIDTH_KEY, String(panelWidth)); } catch(e) {}
+  });
+
+  panel.appendChild(handle);
   panel.appendChild(iframe);
   document.body.appendChild(panel);
 
@@ -147,7 +181,7 @@ export function buildClientScript(opts: {
   function setPanelOpen(open) {
     panel.style.display = open ? 'block' : 'none';
     toggle.innerHTML = open ? 'close' : dotHtml() + 'via';
-    toggle.style.${toggleSideKey} = open ? '${toggleOpenVal}' : '${toggleClosedVal}';
+    toggle.style.${toggleSideKey} = open ? (panelWidth + 14) + 'px' : '${toggleClosedVal}';
     toggle.style.${toggleVerticalKey} = open ? '${pos.includes("top") ? "16" : "11"}px' : '12px';
     toggle.style.borderColor = open ? '#71717a' : '#3f3f46';
     toggle.style.color = open ? '#a1a1aa' : '#a1a1aa';
